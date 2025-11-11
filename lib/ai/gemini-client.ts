@@ -120,7 +120,7 @@ export async function generateServiceCode(
 
     const text = response.text;
 
-    let jsonText = text.trim();
+    let jsonText = text?.trim() || "";
     if (jsonText.startsWith("```json")) {
       jsonText = jsonText.replace(/```json\n?/g, "").replace(/```\n?/g, "");
     } else if (jsonText.startsWith("```")) {

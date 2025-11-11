@@ -32,9 +32,9 @@ export function calculateSimilarity(
 
   // Component type similarity (20% weight)
   const componentWeight = 20;
-  const types1 = new Set(design1.services.map(s => s.type));
-  const types2 = new Set(design2.services.map(s => s.type));
-  const sharedTypes = [...types1].filter(t => types2.has(t));
+  const types1 = new Set(design1.services.map(s => s.type)) as Set<string>;
+  const types2 = new Set(design2.services.map(s => s.type)) as Set<string>;
+  const sharedTypes = Array.from(types1).filter(t => types2.has(t));
   const typeScore = (sharedTypes.length / Math.max(types1.size, types2.size)) * componentWeight;
   score += typeScore;
   maxScore += componentWeight;
