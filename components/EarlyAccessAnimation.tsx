@@ -55,23 +55,6 @@ export function EarlyAccessAnimation() {
 
       <div className="access-halo access-halo--outer" />
       <div className="access-halo access-halo--inner" />
-
-      <div className="access-stack">
-        {LAYERS.map((layer) => (
-          <div
-            key={layer.id}
-            className="access-layer"
-            style={
-              {
-                "--layer-depth": `${layer.depth}px`,
-                "--layer-rotate": `${layer.rotate}deg`,
-                "--layer-accent": layer.accent,
-              } as CSSProperties
-            }
-          ></div>
-        ))}
-      </div>
-
       <div className="access-particles">
         {Array.from({ length: 14 }).map((_, index) => (
           <span

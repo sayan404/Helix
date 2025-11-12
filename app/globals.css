@@ -394,6 +394,7 @@
   perspective: 1400px;
   perspective-origin: 50% 40%;
   overflow: hidden;
+  border-radius: 16px;
 }
 
 .access-stack {
