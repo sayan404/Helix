@@ -206,9 +206,6 @@ export function EarlyAccessLanding() {
       <header className="relative z-20 border-b border-white/5 bg-slate-950/60 backdrop-blur-xl">
         <div className="container mx-auto flex items-center justify-between px-6 py-5">
           <div className="flex items-center gap-3">
-            <span className="relative inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 via-sky-500 to-purple-600 text-lg font-bold text-white shadow-lg shadow-blue-500/30">
-              <Sparkles className="h-5 w-5" />
-            </span>
             <div>
               <p className="text-xs uppercase tracking-[0.4em] text-slate-400">
                 Helix Early Access
@@ -355,7 +352,7 @@ export function EarlyAccessLanding() {
                       Already invited?
                     </label>
                     <p className="text-xs text-slate-400">
-                      Use your beta passcode to unlock the Helix workspace.
+                      Use your passcode to unlock the Helix workspace.
                     </p>
                   </div>
                   <div className="relative">
