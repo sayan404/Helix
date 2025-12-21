@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { evaluateArchitecture } from "@/lib/ai/gemini-client";
 import { ArchitectureBlueprint } from "@/lib/types";
+import { getCurrentUser } from "@/lib/auth/get-user";
+import { db, schema } from "@/lib/db/drizzle";
 
 export async function POST(request: NextRequest) {
   try {
-    const { message, architecture } = await request.json();
+    const { message, architecture, architectureId } = await request.json();
 
     if (!message || typeof message !== "string") {
       return NextResponse.json(
@@ -20,12 +22,38 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const reply = await evaluateArchitecture(
+    // Get current user
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json(
+        { error: "Authentication required" },
+        { status: 401 }
+      );
+    }
+
+    if (!db) {
+      return NextResponse.json(
+        { error: "Database connection unavailable" },
+        { status: 503 }
+      );
+    }
+
+    const result = await evaluateArchitecture(
       architecture as ArchitectureBlueprint,
       message
     );
 
-    return NextResponse.json({ reply });
+    // Track token usage
+    await db.insert(schema.tokenUsage).values({
+      userId: user.id,
+      operation: "architecture_evaluation",
+      inputTokens: result.tokenUsage.inputTokens,
+      outputTokens: result.tokenUsage.outputTokens,
+      totalTokens: result.tokenUsage.totalTokens,
+      architectureId: architectureId ? parseInt(architectureId) : null,
+    });
+
+    return NextResponse.json({ reply: result.answer });
   } catch (error) {
     console.error("Error in chat API:", error);
     return NextResponse.json(

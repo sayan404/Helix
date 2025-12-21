@@ -1,0 +1,66 @@
+[
+  {
+    "id": "core",
+    "label": "Core",
+    "items": [
+      { "type": "service", "label": "Service", "icon": "Server", "colorTheme": "green" },
+      { "type": "database", "label": "Database", "icon": "Database", "colorTheme": "blue" },
+      { "type": "gateway", "label": "API Gateway", "icon": "Globe", "colorTheme": "purple" }
+    ]
+  },
+  {
+    "id": "frontend",
+    "label": "Frontend",
+    "items": [
+      { "type": "mobile", "label": "Mobile App", "icon": "Smartphone", "colorTheme": "indigo" },
+      { "type": "web", "label": "Web App", "icon": "Monitor", "colorTheme": "indigo" }
+    ]
+  },
+  {
+    "id": "infrastructure",
+    "label": "Infrastructure",
+    "items": [
+      { "type": "k8s", "label": "Kubernetes", "icon": "Hexagon", "colorTheme": "blue" },
+      { "type": "container", "label": "Container", "icon": "Container", "colorTheme": "blue" },
+      { "type": "vpc", "label": "VPC / Network", "icon": "Wifi", "colorTheme": "slate" },
+      { "type": "dns", "label": "DNS", "icon": "Route", "colorTheme": "yellow" }
+    ]
+  },
+  {
+    "id": "backend",
+    "label": "Backend",
+    "items": [
+      { "type": "queue", "label": "Message Queue", "icon": "Layers", "colorTheme": "orange" },
+      { "type": "cache", "label": "Cache", "icon": "Box", "colorTheme": "yellow" },
+      { "type": "load-balancer", "label": "Load Balancer", "icon": "Network", "colorTheme": "cyan" },
+      { "type": "function", "label": "Serverless Func", "icon": "Code2", "colorTheme": "pink" }
+    ]
+  },
+  {
+    "id": "storage",
+    "label": "Storage & Data",
+    "items": [
+      { "type": "storage", "label": "Object Storage", "icon": "HardDrive", "colorTheme": "slate" },
+      { "type": "cdn", "label": "CDN", "icon": "Cloud", "colorTheme": "sky" },
+      { "type": "datalake", "label": "Data Lake", "icon": "Library", "colorTheme": "cyan" }
+    ]
+  },
+  {
+    "id": "ai_analytics",
+    "label": "AI & Analytics",
+    "items": [
+      { "type": "ml", "label": "ML Model", "icon": "BrainCircuit", "colorTheme": "fuchsia" },
+      { "type": "analytics", "label": "Analytics", "icon": "BarChart3", "colorTheme": "teal" }
+    ]
+  },
+  {
+    "id": "security_ops",
+    "label": "Security & Ops",
+    "items": [
+      { "type": "firewall", "label": "Firewall", "icon": "Shield", "colorTheme": "red" },
+      { "type": "identity", "label": "Identity / Auth", "icon": "Key", "colorTheme": "emerald" },
+      { "type": "cicd", "label": "CI/CD Pipeline", "icon": "GitBranch", "colorTheme": "orange" }
+    ]
+  }
+]
+

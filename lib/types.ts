@@ -23,6 +23,7 @@ export interface ArchitectureBlueprint {
   summary: string;
   estimated_cost?: CostEstimation;
   created_at: string;
+  updated_at: string;
 }
 
 export interface CostEstimation {

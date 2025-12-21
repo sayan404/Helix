@@ -1,16 +1,15 @@
 import { NextResponse } from "next/server";
 
-const FALLBACK_PASSCODE = "letmein-sayan4040-pls-23-11-2025";
-const ACCESS_COOKIE_NAME = "helix-access";
-const ACCESS_COOKIE_VALUE = "granted";
+// const FALLBACK_PASSCODE = "letmein-sayan4040-pls-23-11-2025";
+// const ACCESS_COOKIE_NAME = "helix-access";
+// const ACCESS_COOKIE_VALUE = "granted";
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
   const providedPasscode =
     typeof body?.passcode === "string" ? body.passcode.trim() : "";
 
-  const expectedPasscode =
-    process.env.EARLY_ACCESS_PASSCODE?.trim() || FALLBACK_PASSCODE;
+  const expectedPasscode = process.env.EARLY_ACCESS_PASSCODE?.trim();
 
   if (!providedPasscode) {
     return NextResponse.json(
@@ -32,8 +31,8 @@ export async function POST(request: Request) {
   const response = NextResponse.json({ ok: true });
 
   response.cookies.set({
-    name: ACCESS_COOKIE_NAME,
-    value: ACCESS_COOKIE_VALUE,
+    name: process.env.ACCESS_COOKIE_NAME || "",
+    value: process.env.ACCESS_COOKIE_VALUE || "",
     path: "/",
     httpOnly: true,
     sameSite: "lax",

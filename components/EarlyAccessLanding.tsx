@@ -1,18 +1,20 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import {
   Sparkles,
   ShieldCheck,
   Users,
   Zap,
   Lock,
-  KeyRound,
-  Loader2,
-  ArrowUpRight,
   ShieldHalf,
   Rocket,
   LineChart,
+  GlobeIcon,
+  MailIcon,
+  PhoneIcon,
+  SmartphoneIcon,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -26,27 +28,6 @@ type StatusState = {
   message?: string;
 };
 
-const highlights = [
-  {
-    icon: ShieldCheck,
-    title: "Enterprise-grade guardrails",
-    description:
-      "Policy-aware architecture synthesis that keeps compliance, privacy, and cost in balance.",
-  },
-  {
-    icon: Zap,
-    title: "Scenario simulation",
-    description:
-      "Preview resilience under peak loads with AI-generated traffic models and stress tests.",
-  },
-  {
-    icon: Users,
-    title: "Collaborative workflows",
-    description:
-      "Invite stakeholders to co-design with real-time insights, annotations, and approval flows.",
-  },
-];
-
 const metrics = [
   {
     icon: Rocket,
@@ -54,9 +35,9 @@ const metrics = [
     label: "Blueprint delivery cycles",
   },
   {
-    icon: ShieldHalf,
+    icon: SmartphoneIcon,
     value: "100%",
-    label: "Governance guardrail coverage",
+    label: "Mobile friendly",
   },
   {
     icon: LineChart,
@@ -207,22 +188,40 @@ export function EarlyAccessLanding() {
         <div className="container mx-auto flex items-center justify-between px-6 py-5">
           <div className="flex items-center gap-3">
             <div>
-              <p className="text-xs uppercase tracking-[0.4em] text-slate-400">
-                Helix Early Access
-              </p>
               <h1 className="text-2xl font-semibold text-white">
                 Project Helix
               </h1>
             </div>
           </div>
-          <div className="hidden md:flex items-center gap-3 text-sm text-slate-400">
-            <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5">
-              <Lock className="h-4 w-4 text-slate-200" />
-              Private beta
+          <div className="flex items-center gap-3">
+            <div className="hidden md:flex items-center gap-3 text-sm text-slate-400">
+              <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5">
+                <Lock className="h-4 w-4 text-slate-200" />
+                Private beta
+              </div>
+              <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5">
+                <ShieldCheck className="h-4 w-4 text-slate-200" />
+                Secure by design
+              </div>
             </div>
-            <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5">
-              <ShieldCheck className="h-4 w-4 text-slate-200" />
-              Secure by design
+            <div className="flex items-center gap-2">
+              <Link href="/login">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-white/10 bg-white/5 text-slate-200 hover:bg-white/10"
+                >
+                  Sign In
+                </Button>
+              </Link>
+              <Link href="/signup">
+                <Button
+                  size="sm"
+                  className="bg-blue-600 hover:bg-blue-500 text-white"
+                >
+                  Sign Up
+                </Button>
+              </Link>
             </div>
           </div>
         </div>
@@ -239,19 +238,18 @@ export function EarlyAccessLanding() {
                 </div>
 
                 <h2 className="max-w-2xl text-balance text-4xl font-semibold leading-tight text-white sm:text-5xl">
-                  Design resilient cloud architectures with a co-pilot that
-                  thinks in{" "}
+                  Build reliable systems with an AI assistant that designs in{" "}
                   <span className="bg-gradient-to-r from-blue-300 via-sky-200 to-purple-300 bg-clip-text text-transparent">
-                    systems-first 3D
+                    3D from the ground up
                   </span>
                   .
                 </h2>
 
                 <p className="max-w-2xl text-lg text-slate-300">
-                  Helix turns natural language strategy into validated system
-                  blueprints, load simulations, and production-ready
-                  boilerplate. Early access members co-create the product and
-                  unlock hands-on sessions with the Helix architecture team.
+                  Simply describe your app idea in plain text, and Helix will
+                  create a complete system design, and will give you
+                  ready-to-use code boilerplate to get started. Early access
+                  members will help shape Helix.
                 </p>
               </div>
 
@@ -271,29 +269,7 @@ export function EarlyAccessLanding() {
                 ))}
               </div>
 
-              <div className="grid gap-6 lg:grid-cols-3">
-                {highlights.map((feature) => (
-                  <div
-                    key={feature.title}
-                    className="group relative overflow-hidden rounded-3xl border border-white/5 bg-gradient-to-br from-white/[0.06] via-white/[0.02] to-white/[0.01] p-6 shadow-lg shadow-slate-900/40 backdrop-blur-xl"
-                  >
-                    <div className="absolute -left-12 -top-12 h-32 w-32 rounded-full bg-blue-500/10 blur-2xl transition-transform duration-500 group-hover:translate-x-4 group-hover:translate-y-4" />
-                    <div className="flex items-center gap-3">
-                      <span className="flex h-12 w-12 items-center justify-center rounded-2xl">
-                        <feature.icon className="h-6 w-6" />
-                      </span>
-                      <h3 className="text-base font-semibold text-white">
-                        {feature.title}
-                      </h3>
-                    </div>
-                    <p className="mt-4 text-sm leading-relaxed text-slate-300">
-                      {feature.description}
-                    </p>
-                  </div>
-                ))}
-              </div>
-
-              <div className="grid gap-6 rounded-[32px] border border-white/10 bg-white/[0.05] p-8 shadow-2xl shadow-slate-900/40 backdrop-blur-2xl lg:grid-cols-2">
+              {/* <div className="grid gap-6 rounded-[32px] border border-white/10 bg-white/[0.05] p-8 shadow-2xl shadow-slate-900/40 backdrop-blur-2xl lg:grid-cols-2">
                 <form onSubmit={handleJoinWaitlist} className="space-y-5">
                   <div className="space-y-2">
                     <label
@@ -393,7 +369,7 @@ export function EarlyAccessLanding() {
                     </p>
                   )}
                 </form>
-              </div>
+              </div> */}
 
               <div className="flex flex-wrap gap-3 text-xs text-slate-400">
                 <span className="rounded-full border border-white/10 px-3 py-1">
@@ -421,16 +397,6 @@ export function EarlyAccessLanding() {
                     <Lock className="h-4 w-4 text-sky-300" />
                     Tier-aware execution graph
                   </div>
-                  <p className="leading-relaxed text-slate-300">
-                    Visualize how Helix orchestrates knowledge, services, and
-                    guardrails to deliver enterprise-ready architectures from
-                    day zero. Layered slices represent cognition, automation,
-                    and governance working in sync.
-                  </p>
-                  <p className="text-xs text-slate-500">
-                    Hover to explore dynamic beams and depth transitions crafted
-                    for the early access experience.
-                  </p>
                 </div>
               </div>
             </div>
@@ -442,12 +408,22 @@ export function EarlyAccessLanding() {
         <div className="container mx-auto flex flex-col items-start justify-between gap-6 px-6 text-xs text-slate-400 sm:flex-row">
           <p>© {new Date().getFullYear()} Helix Labs. All rights reserved.</p>
           <div className="flex flex-wrap gap-4">
-            <span>helixlabs.vercel.app</span>
-            <span>sayanmajumder0002@gmail.com</span>
-            <span className="flex items-center gap-1 text-slate-300">
-              <Sparkles className="h-3 w-3" />
-              Private beta cohort
-            </span>
+            <Link
+              href="https://helixlabs.vercel.app"
+              className="cursor-pointer text-slate-300 bg-white/10 px-2 py-1 rounded-md"
+            >
+              <div className="flex items-center gap-1">
+                <GlobeIcon className="h-3 w-3" /> helixlabs.vercel.app
+              </div>
+            </Link>
+            <Link
+              href="mailto:sayanmajumder0002@gmail.com"
+              className="cursor-pointer text-slate-300 bg-white/10 px-2 py-1 rounded-md"
+            >
+              <div className="flex items-center gap-1">
+                <MailIcon className="h-3 w-3" /> sayanmajumder0002@gmail.com
+              </div>
+            </Link>
           </div>
         </div>
       </footer>

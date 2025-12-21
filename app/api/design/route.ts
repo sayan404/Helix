@@ -1,42 +1,183 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { generateArchitecture } from '@/lib/ai/gemini-client';
-import { estimateCost } from '@/lib/utils/cost-estimator';
-import { ArchitectureBlueprint } from '@/lib/types';
+import { NextRequest, NextResponse } from "next/server";
+import { generateArchitecture } from "@/lib/ai/gemini-client";
+import { estimateCost } from "@/lib/utils/cost-estimator";
+import { ArchitectureBlueprint } from "@/lib/types";
+import { getCurrentUser } from "@/lib/auth/get-user";
+import { db, schema } from "@/lib/db/drizzle";
+import { eq, count } from "drizzle-orm";
 
 export async function POST(request: NextRequest) {
   try {
-    const { prompt } = await request.json();
+    const { prompt, architectureId, existingArchitecture } =
+      await request.json();
 
-    if (!prompt || typeof prompt !== 'string') {
+    if (!prompt || typeof prompt !== "string") {
       return NextResponse.json(
-        { error: 'Prompt is required' },
+        { error: "Prompt is required" },
         { status: 400 }
       );
     }
 
-    // Generate architecture using Gemini
-    const architecture = await generateArchitecture(prompt);
+    // Get current user
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json(
+        { error: "Authentication required" },
+        { status: 401 }
+      );
+    }
+
+    if (!db) {
+      return NextResponse.json(
+        { error: "Database connection unavailable" },
+        { status: 503 }
+      );
+    }
+
+    let existingArch: ArchitectureBlueprint | undefined = undefined;
+    let isIteration = false;
+
+    // If architectureId is provided, fetch the existing architecture
+    if (architectureId && typeof architectureId === "number") {
+      const [existingArchRecord] = await db
+        .select()
+        .from(schema.architectures)
+        .where(eq(schema.architectures.id, architectureId));
+
+      if (!existingArchRecord) {
+        return NextResponse.json(
+          { error: "Architecture not found" },
+          { status: 404 }
+        );
+      }
+
+      // Verify ownership
+      if (existingArchRecord.userId !== user.id) {
+        return NextResponse.json(
+          { error: "Unauthorized access to architecture" },
+          { status: 403 }
+        );
+      }
+
+      // Convert database record to ArchitectureBlueprint
+      existingArch = {
+        id: existingArchRecord.id.toString(),
+        prompt: existingArchRecord.prompt,
+        services: existingArchRecord.services as any,
+        connections: existingArchRecord.connections as any,
+        patterns: existingArchRecord.patterns as any,
+        scaling_model: existingArchRecord.scalingModel as any,
+        summary: existingArchRecord.summary || "",
+        estimated_cost: existingArchRecord.estimatedCost as any,
+        created_at: existingArchRecord.createdAt.toISOString(),
+      };
+      isIteration = true;
+    } else if (
+      existingArchitecture &&
+      typeof existingArchitecture === "object"
+    ) {
+      // If existingArchitecture object is provided directly (e.g., manually added architecture)
+      existingArch = existingArchitecture as ArchitectureBlueprint;
+      isIteration = true;
+    }
+
+    // Only check limit when creating a new architecture, not when iterating
+    if (!isIteration) {
+      const [architecturesCount] = await db
+        .select({ count: count() })
+        .from(schema.architectures)
+        .where(eq(schema.architectures.userId, user.id));
+      console.log("architecturesCount.count", architecturesCount.count);
+
+      if (
+        architecturesCount.count >=
+        parseInt(process.env.MAX_ARCHITECTURES_LIMIT || "2")
+      ) {
+        return NextResponse.json(
+          {
+            error: "Maximum limit of 2 architectures reached",
+            redirect: "/support-my-work",
+          },
+          { status: 403 }
+        );
+      }
+    }
+
+    // Generate architecture using Gemini, passing existing architecture if available
+    const result = await generateArchitecture(prompt, existingArch);
+    const architecture = result.architecture;
 
     // Create the full blueprint
     const blueprint: ArchitectureBlueprint = {
-      id: `arch-${Date.now()}`,
-      prompt,
+      id: existingArch?.id || `arch-${Date.now()}`,
+      prompt: isIteration
+        ? `${existingArch?.prompt || ""} - Iteration: ${prompt}`
+        : prompt,
       services: architecture.services || [],
       connections: architecture.connections || [],
       patterns: architecture.patterns || [],
-      scaling_model: architecture.scaling_model || 'horizontal',
-      summary: architecture.summary || 'System architecture generated',
+      scaling_model: architecture.scaling_model || "horizontal",
+      summary: architecture.summary || "System architecture generated",
       estimated_cost: estimateCost(architecture),
-      created_at: new Date().toISOString(),
+      created_at: existingArch?.created_at || new Date().toISOString(),
     };
 
-    return NextResponse.json(blueprint);
+    let savedArchitecture;
+
+    if (isIteration && architectureId) {
+      // Update existing architecture
+      [savedArchitecture] = await db
+        .update(schema.architectures)
+        .set({
+          prompt: blueprint.prompt,
+          services: blueprint.services as any,
+          connections: blueprint.connections as any,
+          patterns: blueprint.patterns as any,
+          scalingModel: blueprint.scaling_model,
+          summary: blueprint.summary,
+          estimatedCost: blueprint.estimated_cost as any,
+          updatedAt: new Date(),
+        })
+        .where(eq(schema.architectures.id, architectureId))
+        .returning();
+    } else {
+      // Save new architecture to database
+      [savedArchitecture] = await db
+        .insert(schema.architectures)
+        .values({
+          userId: user.id,
+          prompt: blueprint.prompt,
+          services: blueprint.services as any,
+          connections: blueprint.connections as any,
+          patterns: blueprint.patterns as any,
+          scalingModel: blueprint.scaling_model,
+          summary: blueprint.summary,
+          estimatedCost: blueprint.estimated_cost as any,
+        })
+        .returning();
+    }
+
+    // Track token usage
+    await db.insert(schema.tokenUsage).values({
+      userId: user.id,
+      operation: "architecture_generation",
+      inputTokens: result.tokenUsage.inputTokens,
+      outputTokens: result.tokenUsage.outputTokens,
+      totalTokens: result.tokenUsage.totalTokens,
+      architectureId: savedArchitecture.id,
+    });
+
+    // Return blueprint with database ID
+    return NextResponse.json({
+      ...blueprint,
+      id: savedArchitecture.id.toString(),
+      dbId: savedArchitecture.id,
+    });
   } catch (error) {
-    console.error('Error in design API:', error);
+    console.error("Error in design API:", error);
     return NextResponse.json(
-      { error: 'Failed to generate architecture' },
+      { error: "Failed to generate architecture" },
       { status: 500 }
     );
   }
 }
-

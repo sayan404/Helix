@@ -5,16 +5,17 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- Architectures table
 CREATE TABLE IF NOT EXISTS architectures (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
     prompt TEXT NOT NULL,
     services JSONB NOT NULL,
     connections JSONB NOT NULL,
-    patterns TEXT[] NOT NULL,
+    patterns JSONB NOT NULL,
     scaling_model VARCHAR(50) NOT NULL,
     summary TEXT,
     estimated_cost JSONB,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
 -- Indexes for pattern-based search
@@ -79,4 +80,47 @@ CREATE TABLE IF NOT EXISTS early_access_requests (
 
 CREATE UNIQUE INDEX IF NOT EXISTS early_access_requests_email_idx
     ON early_access_requests (email);
+
+-- Users table for authentication
+CREATE TABLE IF NOT EXISTS users (
+    id SERIAL PRIMARY KEY,
+    email VARCHAR(320) NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    name VARCHAR(255),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    CONSTRAINT users_email_unique UNIQUE (email)
+);
+
+-- Create index on email for faster lookups
+CREATE INDEX IF NOT EXISTS users_email_idx ON users(email);
+
+-- Token usage operation enum
+DO $$ BEGIN
+    CREATE TYPE token_usage_operation AS ENUM (
+        'architecture_generation',
+        'code_generation',
+        'architecture_evaluation'
+    );
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+CREATE INDEX IF NOT EXISTS architectures_user_id_idx ON architectures(user_id);
+
+-- Token usage table
+CREATE TABLE IF NOT EXISTS token_usage (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    operation token_usage_operation NOT NULL,
+    input_tokens INTEGER NOT NULL DEFAULT 0,
+    output_tokens INTEGER NOT NULL DEFAULT 0,
+    total_tokens INTEGER NOT NULL DEFAULT 0,
+    architecture_id INTEGER REFERENCES architectures(id) ON DELETE SET NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS token_usage_user_id_idx ON token_usage(user_id);
+CREATE INDEX IF NOT EXISTS token_usage_architecture_id_idx ON token_usage(architecture_id);
+CREATE INDEX IF NOT EXISTS token_usage_created_at_idx ON token_usage(created_at);
 
