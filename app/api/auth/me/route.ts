@@ -4,6 +4,8 @@ import { cookies } from "next/headers";
 import { db, schema } from "@/lib/db/drizzle";
 import { verifyToken } from "@/lib/auth/utils";
 
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   if (!db) {
     return NextResponse.json(

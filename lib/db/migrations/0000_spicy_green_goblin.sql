@@ -11,6 +11,7 @@ CREATE TABLE "users" (
 	"email" varchar(320) NOT NULL,
 	"password_hash" varchar(255) NOT NULL,
 	"name" varchar(255),
+	"max_allowed_tokens" integer DEFAULT 10000 NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );

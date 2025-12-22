@@ -9,6 +9,8 @@ import type { CodeTemplate } from "@/lib/types";
 import { monitorApiRoute } from "@/lib/monitoring/api-monitoring";
 import * as Sentry from "@sentry/nextjs";
 
+export const dynamic = 'force-dynamic';
+
 function slugify(name: string): string {
   return name
     .toLowerCase()

@@ -7,6 +7,8 @@ import { monitorApiRoute } from "@/lib/monitoring/api-monitoring";
 import * as Sentry from "@sentry/nextjs";
 import { getUserTokenQuota } from "@/lib/utils/token-quota";
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(request: NextRequest) {
   return monitorApiRoute(
     { route: "/api/generate-code", method: "POST", request },

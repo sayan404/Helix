@@ -4,6 +4,8 @@ import { db, schema } from "@/lib/db/drizzle";
 import { eq, sum } from "drizzle-orm";
 import { getUserTokenQuota } from "@/lib/utils/token-quota";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(request: NextRequest) {
   try {
     const user = await getCurrentUser();

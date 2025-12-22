@@ -6,6 +6,8 @@ import { ArchitectureBlueprint } from "@/lib/types";
 import { monitorApiRoute } from "@/lib/monitoring/api-monitoring";
 import * as Sentry from "@sentry/nextjs";
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   return monitorApiRoute(
     { route: "/api/architectures", method: "GET", request },
