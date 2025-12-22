@@ -26,7 +26,7 @@ export async function getUserTokenQuota(
     .where(eq(schema.users.id, userId))
     .limit(1);
 
-  const maxAllowedTokens = Number(userRow?.maxAllowedTokens) || 10000;
+  const maxAllowedTokens = Number(userRow?.maxAllowedTokens) || 5000;
 
   const totals = await db
     .select({

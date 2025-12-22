@@ -35,7 +35,7 @@ export const users = pgTable(
     email: varchar("email", { length: 320 }).notNull(),
     passwordHash: varchar("password_hash", { length: 255 }).notNull(),
     name: varchar("name", { length: 255 }),
-    maxAllowedTokens: integer("max_allowed_tokens").notNull().default(10000),
+    maxAllowedTokens: integer("max_allowed_tokens").notNull().default(5000),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),

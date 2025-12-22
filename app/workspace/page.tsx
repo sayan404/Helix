@@ -396,7 +396,7 @@ export default function Home() {
                 role: "assistant",
                 mode: "generate",
                 content: `⚠️ Token limit reached. You've used all ${
-                  errorData.quota?.maxAllowedTokens?.toLocaleString() || 10000
+                  errorData.quota?.maxAllowedTokens?.toLocaleString() || 1000
                 } tokens.\n\nYou can still view your past architectures and generated code, but new generation requires more tokens. Visit ${
                   errorData.redirect
                 } to upgrade.`,
@@ -434,7 +434,7 @@ export default function Home() {
               role: "assistant",
               mode: "generate",
               content: `⚠️ Token limit reached. You've used all ${
-                data.quota?.maxAllowedTokens?.toLocaleString() || 10000
+                data.quota?.maxAllowedTokens?.toLocaleString() || 1000
               } tokens.\n\nYou can still view your past architectures and generated code, but new generation requires more tokens. Visit ${
                 data.redirect
               } to upgrade.`,
@@ -619,7 +619,7 @@ export default function Home() {
         if (errBody?.error && errBody?.redirect && errBody?.quota) {
           alert(
             `⚠️ Token limit reached. You've used all ${
-              errBody.quota.maxAllowedTokens?.toLocaleString() || 10000
+              errBody.quota.maxAllowedTokens?.toLocaleString() || 1000
             } tokens.\n\nYou can still view your past generated code, but new generation requires more tokens. Visit ${
               errBody.redirect
             } to upgrade.`

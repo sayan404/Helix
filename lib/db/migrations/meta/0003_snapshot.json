@@ -500,7 +500,7 @@
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
-          "default": 10000
+          "default": 5000
         },
         "created_at": {
           "name": "created_at",
