@@ -1,8 +1,5 @@
 import { NextResponse } from "next/server";
 
-// const FALLBACK_PASSCODE = "letmein-sayan4040-pls-23-11-2025";
-// const ACCESS_COOKIE_NAME = "helix-access";
-// const ACCESS_COOKIE_VALUE = "granted";
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);

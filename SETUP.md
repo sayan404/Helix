@@ -22,6 +22,24 @@ Create a `.env.local` file in the `helix-app` directory:
 GEMINI_API_KEY=your_gemini_api_key_here
 ```
 
+## Optional: Sentry Monitoring
+
+Add these to `.env.local` to track API failures + endpoint performance (hits/latency) in Sentry:
+
+```bash
+SENTRY_DSN=your_sentry_dsn_here
+SENTRY_TRACES_SAMPLE_RATE=0.1
+
+# Optional (browser monitoring too):
+NEXT_PUBLIC_SENTRY_DSN=your_sentry_dsn_here
+NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE=0.1
+
+# Optional (CI only): upload sourcemaps (next.config enables this when all 3 are set)
+SENTRY_AUTH_TOKEN=...
+SENTRY_ORG=...
+SENTRY_PROJECT=...
+```
+
 ## Step 4: Run the Application
 
 ```bash

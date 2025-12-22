@@ -2,43 +2,51 @@ import { NextRequest, NextResponse } from 'next/server';
 import archiver from 'archiver';
 import { ArchitectureBlueprint, CodeTemplate } from '@/lib/types';
 import { Readable } from 'stream';
+import { monitorApiRoute } from "@/lib/monitoring/api-monitoring";
+import * as Sentry from "@sentry/nextjs";
 
 export async function POST(request: NextRequest) {
-  try {
-    const { architecture, codeTemplates } = await request.json() as {
-      architecture: ArchitectureBlueprint;
-      codeTemplates: CodeTemplate[];
-    };
+  return monitorApiRoute(
+    { route: "/api/export", method: "POST", request },
+    async () => {
+      try {
+        const { architecture, codeTemplates } = (await request.json()) as {
+          architecture: ArchitectureBlueprint;
+          codeTemplates: CodeTemplate[];
+        };
 
-    if (!architecture) {
-      return NextResponse.json(
-        { error: 'Architecture blueprint required' },
-        { status: 400 }
-      );
+        if (!architecture) {
+          return NextResponse.json(
+            { error: 'Architecture blueprint required' },
+            { status: 400 }
+          );
+        }
+
+        // Create docker-compose.yml
+        const dockerCompose = generateDockerCompose(architecture);
+
+        // Create a README
+        const readme = generateReadme(architecture);
+
+        // Create the export package
+        const exportData = {
+          architecture,
+          dockerCompose,
+          readme,
+          codeTemplates: codeTemplates || [],
+        };
+
+        return NextResponse.json(exportData);
+      } catch (error) {
+        console.error('Error in export API:', error);
+        Sentry.captureException(error);
+        return NextResponse.json(
+          { error: 'Failed to export project' },
+          { status: 500 }
+        );
+      }
     }
-
-    // Create docker-compose.yml
-    const dockerCompose = generateDockerCompose(architecture);
-    
-    // Create a README
-    const readme = generateReadme(architecture);
-
-    // Create the export package
-    const exportData = {
-      architecture,
-      dockerCompose,
-      readme,
-      codeTemplates: codeTemplates || [],
-    };
-
-    return NextResponse.json(exportData);
-  } catch (error) {
-    console.error('Error in export API:', error);
-    return NextResponse.json(
-      { error: 'Failed to export project' },
-      { status: 500 }
-    );
-  }
+  );
 }
 
 function generateDockerCompose(architecture: ArchitectureBlueprint): string {

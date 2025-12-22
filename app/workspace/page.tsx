@@ -39,11 +39,15 @@ import {
   Copy,
   Check,
   FileCode,
+  ArrowRight,
+  Star,
+  Coins,
 } from "lucide-react";
 import DiagramEditorWrapper from "@/components/diagram/DiagramEditor";
 import componentLibrary from "@/components/diagram/componentLibrary.json";
 import { FolderOpen, Clock } from "lucide-react";
 import { LoadSimulationChart } from "@/components/LoadSimulationChart";
+import { useRouter } from "next/navigation";
 
 type ChatMode = "generate" | "evaluate";
 
@@ -56,6 +60,7 @@ type ChatMessage = {
 };
 
 export default function Home() {
+  const router = useRouter();
   const [architecture, setArchitecture] =
     useState<ArchitectureBlueprint | null>(null);
   const [architectureId, setArchitectureId] = useState<number | null>(null);
@@ -74,6 +79,11 @@ export default function Home() {
     email: string;
     name: string | null;
   } | null>(null);
+  const [tokenQuota, setTokenQuota] = useState<{
+    maxAllowedTokens: number;
+    tokensUsed: number;
+    tokensLeft: number;
+  } | null>(null);
   const [pastProjects, setPastProjects] = useState<ArchitectureBlueprint[]>([]);
   const [isLoadingPastProjects, setIsLoadingPastProjects] = useState(false);
   const [isPastProjectsOpen, setIsPastProjectsOpen] = useState(true);
@@ -85,6 +95,19 @@ export default function Home() {
     {}
   );
   const chatListRef = useRef<HTMLDivElement>(null);
+
+  const fetchTokenQuota = async () => {
+    try {
+      const res = await fetch("/api/token-usage?limit=0", {
+        credentials: "include",
+      });
+      if (!res.ok) return;
+      const data = await res.json().catch(() => null);
+      if (data?.quota) setTokenQuota(data.quota);
+    } catch {
+      // ignore
+    }
+  };
 
   useEffect(() => {
     if (chatListRef.current) {
@@ -107,12 +130,21 @@ export default function Home() {
       .then((data) => {
         if (data?.ok && data?.user) {
           setCurrentUser(data.user);
+          fetchTokenQuota();
         }
       })
       .catch(() => {
-        // User not authenticated, will be redirected by middleware
+        router.push("/login");
       });
   }, []);
+
+  useEffect(() => {
+    if (!currentUser) return;
+    const id = setInterval(() => {
+      fetchTokenQuota();
+    }, 15000);
+    return () => clearInterval(id);
+  }, [currentUser]);
 
   // Fetch past projects on mount
   useEffect(() => {
@@ -147,14 +179,53 @@ export default function Home() {
         method: "POST",
         credentials: "include", // Include cookies
       });
+      setTokenQuota(null);
       window.location.href = "/login";
     } catch (error) {
       console.error("Logout error:", error);
       window.location.href = "/login";
     }
   };
-  const handleWhiteboardSave = (updated: ArchitectureBlueprint) => {
-    setArchitecture(updated);
+  const handleWhiteboardSave = async (updated: ArchitectureBlueprint) => {
+    try {
+      const response = await fetch("/api/architectures", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          architecture: updated,
+          architectureId: architectureId,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData?.error || "Failed to save architecture");
+      }
+
+      const data = await response.json();
+      if (data?.ok && data?.architecture) {
+        setArchitecture(data.architecture);
+        setArchitectureId(data.dbId || null);
+
+        // Refresh past projects list
+        fetch("/api/architectures", {
+          credentials: "include",
+        })
+          .then((res) => res.json())
+          .then((archData) => {
+            if (archData?.ok && archData?.architectures) {
+              setPastProjects(archData.architectures.slice(0, 2));
+            }
+          })
+          .catch((error) => {
+            console.error("Error refreshing architectures:", error);
+          });
+      }
+    } catch (error) {
+      console.error("Error saving architecture:", error);
+      alert("Failed to save architecture. Please try again.");
+    }
   };
 
   const handleLoadArchitecture = (arch: ArchitectureBlueprint) => {
@@ -316,8 +387,24 @@ export default function Home() {
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));
           if (errorData.error && errorData.redirect) {
-            // Redirect to support page if limit reached
-            window.location.href = errorData.redirect;
+            // Token limit reached - show error message but don't redirect
+            // User can still view past content
+            setMessages((prev) => [
+              ...prev,
+              {
+                id: `assistant-${Date.now()}`,
+                role: "assistant",
+                mode: "generate",
+                content: `⚠️ Token limit reached. You've used all ${
+                  errorData.quota?.maxAllowedTokens?.toLocaleString() || 10000
+                } tokens.\n\nYou can still view your past architectures and generated code, but new generation requires more tokens. Visit ${
+                  errorData.redirect
+                } to upgrade.`,
+                timestamp: new Date().toISOString(),
+              },
+            ]);
+            // Refresh token quota
+            fetchTokenQuota();
             return;
           }
           if (errorData.error) {
@@ -330,11 +417,31 @@ export default function Home() {
           dbId?: number;
           error?: string;
           redirect?: string;
+          quota?: {
+            maxAllowedTokens: number;
+            tokensUsed: number;
+            tokensLeft: number;
+          };
         } = await response.json();
 
         // Check if there's an error with redirect (e.g., limit reached)
+        // Don't redirect - let user view past content
         if (data.error && data.redirect) {
-          window.location.href = data.redirect;
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: `assistant-${Date.now()}`,
+              role: "assistant",
+              mode: "generate",
+              content: `⚠️ Token limit reached. You've used all ${
+                data.quota?.maxAllowedTokens?.toLocaleString() || 10000
+              } tokens.\n\nYou can still view your past architectures and generated code, but new generation requires more tokens. Visit ${
+                data.redirect
+              } to upgrade.`,
+              timestamp: new Date().toISOString(),
+            },
+          ]);
+          fetchTokenQuota();
           return;
         }
 
@@ -443,6 +550,7 @@ export default function Home() {
       ]);
     } finally {
       setIsChatting(false);
+      fetchTokenQuota();
     }
   };
 
@@ -505,11 +613,23 @@ export default function Home() {
 
       // Fallback to non-stream error handling if streaming isn't available.
       const contentType = response.headers.get("content-type") || "";
-      if (
-        !response.ok ||
-        !contentType.includes("text/event-stream") ||
-        !response.body
-      ) {
+      if (!response.ok) {
+        const errBody = await response.json().catch(() => ({} as any));
+        // Handle token limit gracefully - show message but don't redirect
+        if (errBody?.error && errBody?.redirect && errBody?.quota) {
+          alert(
+            `⚠️ Token limit reached. You've used all ${
+              errBody.quota.maxAllowedTokens?.toLocaleString() || 10000
+            } tokens.\n\nYou can still view your past generated code, but new generation requires more tokens. Visit ${
+              errBody.redirect
+            } to upgrade.`
+          );
+          fetchTokenQuota();
+          return;
+        }
+        throw new Error(errBody?.error || "Failed to generate code");
+      }
+      if (!contentType.includes("text/event-stream") || !response.body) {
         const errBody = await response.json().catch(() => ({} as any));
         throw new Error(errBody?.error || "Failed to generate code");
       }
@@ -609,6 +729,7 @@ export default function Home() {
       alert("Failed to generate code. Please try again.");
     } finally {
       setIsGeneratingCode(false);
+      fetchTokenQuota();
     }
   };
 
@@ -655,8 +776,20 @@ export default function Home() {
     }
   };
 
-  const handleCopyCode = (code: string, id: string) => {
-    navigator.clipboard.writeText(code);
+  const contentToString = (content: string | object): string => {
+    console.log("contentToString", typeof content, content);
+    if (typeof content === "string") {
+      return content;
+    }
+    if (typeof content === "object" && content !== null) {
+      return JSON.stringify(content, null, 2);
+    }
+    return String(content);
+  };
+
+  const handleCopyCode = (code: string | object, id: string) => {
+    const codeString = contentToString(code);
+    navigator.clipboard.writeText(codeString);
     setCopiedCode(id);
     setTimeout(() => setCopiedCode(null), 2000);
   };
@@ -682,7 +815,7 @@ export default function Home() {
     codeTemplates.forEach((template) => {
       out += `\n--- SERVICE: ${template.service_name} ---\n`;
       Object.entries(template.files || {}).forEach(([filename, content]) => {
-        out += `\n>>> FILE: ${filename}\n${content}\n`;
+        out += `\n>>> FILE: ${filename}\n${contentToString(content)}\n`;
       });
     });
     return out.trim() + "\n";
@@ -759,6 +892,35 @@ export default function Home() {
                   <Zap className="w-4 h-4 text-blue-400" />
                   <span>AI-Powered</span>
                 </div>
+              </div>
+              {currentUser && tokenQuota && (
+                <div className="flex items-center">
+                  <Button
+                    title={"You can buy more tokens by supporting the project."}
+                    variant="outline"
+                    size="sm"
+                    className={`border-slate-700 ${
+                      tokenQuota?.tokensLeft <= 0
+                        ? "text-red-600 hover:text-red-300 hover:border-red-500/50"
+                        : "text-slate-400"
+                    } px-3 py-1 text-xs font-bold`}
+                    onClick={() => router.push("/support-my-work")}
+                  >
+                    <Coins className="w-4 h-4 mr-2" />
+                    {tokenQuota.tokensLeft.toLocaleString()} Tokens left
+                  </Button>
+                </div>
+              )}
+              <div className="flex items-center">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-slate-700 text-yellow-200 hover:text-yellow-300 hover:border-yellow-500/50"
+                  onClick={() => router.push("/support-my-work")}
+                >
+                  <Star className="w-4 h-4 mr-2" />
+                  Contribute
+                </Button>
               </div>
               {/* User Info & Logout */}
               {currentUser && (
@@ -955,7 +1117,7 @@ export default function Home() {
                 </Card>
               )}
 
-              <Card className="border-slate-800/50 bg-slate-900/50 backdrop-blur-xl shadow-2xl">
+              <Card className="border-slate-800/50 bg-slate-900/50 backdrop-blur-xl shadow-2xl ">
                 <CardHeader className="pb-4">
                   <div className="flex items-center gap-2">
                     <div className="p-2 bg-blue-500/10 rounded-lg">
@@ -1044,24 +1206,49 @@ export default function Home() {
                     onSubmit={handleChatSubmit}
                     className="w-full space-y-3"
                   >
-                    <Textarea
-                      value={chatInput}
-                      onChange={(event) => setChatInput(event.target.value)}
-                      rows={3}
-                      placeholder={
-                        chatMode === "generate"
-                          ? "Describe the system you need..."
-                          : "Ask for feedback, risks, or improvements..."
-                      }
-                      disabled={isChatting}
-                      className="bg-slate-950/60 border-slate-800 text-slate-200 placeholder:text-slate-600 focus:border-blue-500/50 focus:ring-blue-500/20 resize-none"
-                    />
+                    <div className="relative">
+                      <Textarea
+                        value={chatInput}
+                        onChange={(event) => setChatInput(event.target.value)}
+                        rows={3}
+                        placeholder={
+                          tokenQuota && tokenQuota.tokensLeft <= 0
+                            ? "Token limit reached. Please support the project to continue..."
+                            : chatMode === "generate"
+                            ? "Describe the system you need..."
+                            : "Ask for feedback, risks, or improvements..."
+                        }
+                        disabled={
+                          isChatting ||
+                          (tokenQuota ? tokenQuota.tokensLeft <= 0 : false)
+                        }
+                        className={`bg-slate-950/60 border-slate-800 text-slate-200 placeholder:text-slate-600 focus:border-blue-500/50 focus:ring-blue-500/20 resize-none ${
+                          tokenQuota && tokenQuota.tokensLeft <= 0
+                            ? "cursor-not-allowed opacity-50"
+                            : ""
+                        }`}
+                        title={
+                          tokenQuota && tokenQuota.tokensLeft <= 0
+                            ? "You have reached token limit. Please support the project to continue."
+                            : undefined
+                        }
+                      />
+                    </div>
                     <div className="flex items-center justify-between text-xs text-slate-500">
                       <span>Shift + Enter for newline</span>
                       <Button
                         type="submit"
-                        disabled={isChatting || !chatInput.trim()}
+                        disabled={
+                          isChatting ||
+                          !chatInput.trim() ||
+                          (tokenQuota ? tokenQuota.tokensLeft <= 0 : false)
+                        }
                         className="bg-blue-600 hover:bg-blue-500 text-white"
+                        title={
+                          tokenQuota && tokenQuota.tokensLeft <= 0
+                            ? "You have reached token limit. Please support the project to continue."
+                            : undefined
+                        }
                       >
                         {isChatting ? (
                           <>
@@ -1157,9 +1344,18 @@ export default function Home() {
                               variant="outline"
                               size="sm"
                               onClick={handleRegenerateCode}
-                              disabled={!architecture || isGeneratingCode}
-                              className="border-slate-700 hover:bg-slate-800"
-                              title="Regenerate (overwrite) generated boilerplate"
+                              disabled={
+                                !architecture ||
+                                isGeneratingCode ||
+                                (tokenQuota
+                                  ? tokenQuota.tokensLeft <= 0
+                                  : false)
+                              }
+                              className={`border-slate-700 hover:bg-slate-800 ${
+                                tokenQuota && tokenQuota.tokensLeft <= 0
+                                  ? "cursor-not-allowed opacity-50"
+                                  : ""
+                              }`}
                             >
                               {isGeneratingCode ? (
                                 <>
@@ -1289,7 +1485,9 @@ export default function Home() {
 
                                           {!isCollapsed && (
                                             <pre className="p-4 overflow-x-auto text-sm text-slate-300 font-mono">
-                                              <code>{content}</code>
+                                              <code>
+                                                {contentToString(content)}
+                                              </code>
                                             </pre>
                                           )}
                                         </div>
@@ -1308,8 +1506,17 @@ export default function Home() {
                           <Button
                             variant="outline"
                             onClick={handleGenerateCode}
-                            disabled={!architecture || isGeneratingCode}
+                            disabled={
+                              !architecture ||
+                              isGeneratingCode ||
+                              (tokenQuota ? tokenQuota.tokensLeft <= 0 : false)
+                            }
                             className="mt-4 border-slate-700 hover:bg-slate-800"
+                            title={
+                              tokenQuota && tokenQuota.tokensLeft <= 0
+                                ? "You have reached token limit. Please support the project to continue."
+                                : undefined
+                            }
                           >
                             {isGeneratingCode
                               ? "Generating..."

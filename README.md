@@ -54,6 +54,23 @@ Edit `.env.local` and add your Gemini API key:
 GEMINI_API_KEY=your_api_key_here
 ```
 
+Optional (Monitoring): add Sentry DSN to capture API errors + endpoint performance (throughput/latency):
+
+```
+SENTRY_DSN=your_sentry_dsn_here
+# Optional overrides:
+SENTRY_TRACES_SAMPLE_RATE=0.1
+
+# Optional (client-side DSN if you want browser errors too):
+NEXT_PUBLIC_SENTRY_DSN=your_sentry_dsn_here
+NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE=0.1
+
+# Optional (CI only): upload sourcemaps
+SENTRY_AUTH_TOKEN=...
+SENTRY_ORG=...
+SENTRY_PROJECT=...
+```
+
 4. Run the development server:
 
 ```bash
@@ -155,3 +172,8 @@ Contributions are welcome! Please open an issue or PR.
 ## Support
 
 For issues or questions, please open a GitHub issue.
+
+
+
+one more thing end points are not returning anythingn is the token left is 0 
+also add a support button to redirect to the buy me a coffee page 

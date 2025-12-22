@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/get-user";
 import { db, schema } from "@/lib/db/drizzle";
 import { eq, sum } from "drizzle-orm";
+import { getUserTokenQuota } from "@/lib/utils/token-quota";
 
 export async function GET(request: NextRequest) {
   try {
@@ -48,6 +49,8 @@ export async function GET(request: NextRequest) {
       totalTokens: 0,
     };
 
+    const quota = await getUserTokenQuota(user.id);
+
     return NextResponse.json({
       ok: true,
       usage: usageRecords.map((record) => ({
@@ -64,6 +67,7 @@ export async function GET(request: NextRequest) {
         outputTokens: Number(total.totalOutputTokens) || 0,
         totalTokens: Number(total.totalTokens) || 0,
       },
+      quota,
     });
   } catch (error) {
     console.error("Error fetching token usage:", error);
@@ -73,4 +77,3 @@ export async function GET(request: NextRequest) {
     );
   }
 }
-

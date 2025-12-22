@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState, useRef } from "react";
 import ReactFlow, {
   MiniMap,
   Controls,
@@ -23,14 +23,16 @@ import {
   Layout,
   Menu,
   X,
-  Moon,
-  Sun,
   HelpCircle,
   ArrowRight,
   Activity,
   Code,
   Download,
   Loader2,
+  Save,
+  Undo,
+  Redo,
+  Camera,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -55,7 +57,7 @@ const nodeTypes = {
 interface DiagramEditorProps {
   architecture: ArchitectureBlueprint | null;
   componentLibrary: any[];
-  onSave?: (arch: ArchitectureBlueprint) => void;
+  onSave?: (arch: ArchitectureBlueprint) => void | Promise<void>;
   onSimulate?: () => Promise<void>;
   onGenerateCode?: () => Promise<void>;
   onExport?: (arch: ArchitectureBlueprint) => Promise<void>;
@@ -143,16 +145,135 @@ const DiagramEditor = ({
     data: any;
   } | null>(null);
   const [reactFlowInstance, setReactFlowInstance] = useState<any>(null);
+  const reactFlowWrapperRef = useRef<HTMLDivElement>(null);
 
   // Mobile/Responsive States
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isPropertiesOpen, setIsPropertiesOpen] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Undo/Redo History
+  type HistoryState = {
+    nodes: Node[];
+    edges: Edge[];
+  };
+  const [history, setHistory] = useState<HistoryState[]>([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+  const MAX_HISTORY_SIZE = 50;
+
+  // Save state to history
+  const saveToHistory = useCallback(
+    (nodesToSave: Node[], edgesToSave: Edge[]) => {
+      const newState: HistoryState = {
+        nodes: JSON.parse(JSON.stringify(nodesToSave)),
+        edges: JSON.parse(JSON.stringify(edgesToSave)),
+      };
+
+      setHistoryIndex((currentIndex) => {
+        setHistory((prev) => {
+          // If history is empty, initialize it
+          if (prev.length === 0) {
+            return [newState];
+          }
+          // Remove any states after current index (when we're in the middle of history)
+          const newHistory = prev.slice(0, currentIndex + 1);
+          // Add new state
+          const updated = [...newHistory, newState];
+          // Limit history size
+          return updated.slice(-MAX_HISTORY_SIZE);
+        });
+        const newIndex = currentIndex + 1;
+        return Math.min(newIndex, MAX_HISTORY_SIZE - 1);
+      });
+    },
+    []
+  );
+
+  // Undo function
+  const handleUndo = useCallback(() => {
+    setHistory((prevHistory) => {
+      if (!prevHistory || prevHistory.length === 0) {
+        return prevHistory;
+      }
+
+      setHistoryIndex((currentIndex) => {
+        if (currentIndex > 0 && prevHistory.length > currentIndex - 1) {
+          const prevState = prevHistory[currentIndex - 1];
+          if (prevState && prevState.nodes && prevState.edges) {
+            setNodes(prevState.nodes);
+            setEdges(prevState.edges);
+            return currentIndex - 1;
+          }
+        }
+        return currentIndex;
+      });
+      return prevHistory;
+    });
+  }, [setNodes, setEdges]);
+
+  // Redo function
+  const handleRedo = useCallback(() => {
+    setHistory((prevHistory) => {
+      if (!prevHistory || prevHistory.length === 0) {
+        return prevHistory;
+      }
+
+      setHistoryIndex((currentIndex) => {
+        if (
+          currentIndex < prevHistory.length - 1 &&
+          prevHistory.length > currentIndex + 1
+        ) {
+          const nextState = prevHistory[currentIndex + 1];
+          if (nextState && nextState.nodes && nextState.edges) {
+            setNodes(nextState.nodes);
+            setEdges(nextState.edges);
+            return currentIndex + 1;
+          }
+        }
+        return currentIndex;
+      });
+      return prevHistory;
+    });
+  }, [setNodes, setEdges]);
+
+  // Keyboard shortcuts for undo/redo
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (
+        (event.ctrlKey || event.metaKey) &&
+        event.key === "z" &&
+        !event.shiftKey
+      ) {
+        event.preventDefault();
+        handleUndo();
+      } else if (
+        (event.ctrlKey || event.metaKey) &&
+        (event.key === "y" || (event.key === "z" && event.shiftKey))
+      ) {
+        event.preventDefault();
+        handleRedo();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [handleUndo, handleRedo]);
 
   // Update nodes and edges when architecture changes
   useEffect(() => {
     const { nodes: newNodes, edges: newEdges } = processInitialData();
     setNodes(newNodes);
     setEdges(newEdges);
+
+    // Initialize history with initial state
+    if (newNodes.length > 0 || newEdges.length > 0) {
+      const initialState: HistoryState = {
+        nodes: JSON.parse(JSON.stringify(newNodes)),
+        edges: JSON.parse(JSON.stringify(newEdges)),
+      };
+      setHistory([initialState]);
+      setHistoryIndex(0);
+    }
 
     // Fit view after a short delay to ensure layout is complete
     if (newNodes.length > 0 && reactFlowInstance) {
@@ -193,19 +314,25 @@ const DiagramEditor = ({
   );
 
   const onConnect = useCallback(
-    (params: Connection) =>
-      setEdges((eds) =>
-        addEdge(
-          {
-            ...params,
-            type: "smoothstep",
-            markerEnd: { type: MarkerType.ArrowClosed },
-            style: { strokeWidth: 2, stroke: "#64748b" },
-          },
-          eds
-        )
-      ),
-    [setEdges]
+    (params: Connection) => {
+      // Save state before adding edge
+      setNodes((nds) => {
+        setEdges((eds) => {
+          saveToHistory(nds, eds);
+          return addEdge(
+            {
+              ...params,
+              type: "smoothstep",
+              markerEnd: { type: MarkerType.ArrowClosed },
+              style: { strokeWidth: 2, stroke: "#64748b" },
+            },
+            eds
+          );
+        });
+        return nds;
+      });
+    },
+    [setNodes, setEdges, saveToHistory]
   );
 
   const onDragOver = useCallback((event: React.DragEvent) => {
@@ -240,9 +367,16 @@ const DiagramEditor = ({
         },
       };
 
-      setNodes((nds) => nds.concat(newNode));
+      // Save state before adding node
+      setNodes((nds) => {
+        setEdges((eds) => {
+          saveToHistory(nds, eds);
+          return eds;
+        });
+        return nds.concat(newNode);
+      });
     },
-    [reactFlowInstance, setNodes]
+    [reactFlowInstance, setNodes, setEdges, saveToHistory]
   );
 
   // Node Selection
@@ -272,14 +406,19 @@ const DiagramEditor = ({
 
   // Update Node Logic
   const updateNodeData = (id: string, newData: any) => {
-    setNodes((nds) =>
-      nds.map((node) => {
+    // Save state before updating
+    setNodes((nds) => {
+      setEdges((eds) => {
+        saveToHistory(nds, eds);
+        return eds;
+      });
+      return nds.map((node) => {
         if (node.id === id) {
           return { ...node, data: { ...node.data, ...newData } };
         }
         return node;
-      })
-    );
+      });
+    });
     setSelectedElement((prev) =>
       prev && prev.type === "node" && prev.data.id === id
         ? {
@@ -292,69 +431,87 @@ const DiagramEditor = ({
 
   // Update Edge Logic
   const updateEdgeData = (id: string, newData: any) => {
-    setEdges((eds) =>
-      eds.map((edge) => {
-        if (edge.id === id) {
-          // Handle reversing edge
-          if (newData.reverse) {
+    // Save state before updating
+    setNodes((nds) => {
+      setEdges((eds) => {
+        saveToHistory(nds, eds);
+        const updatedEdges = eds.map((edge) => {
+          if (edge.id === id) {
+            // Handle reversing edge
+            if (newData.reverse) {
+              return {
+                ...edge,
+                source: edge.target,
+                target: edge.source,
+                // Swap handles if they exist, otherwise default to sensible opposites
+                sourceHandle:
+                  edge.targetHandle === "target-top"
+                    ? "source-bottom"
+                    : "source-right",
+                targetHandle:
+                  edge.sourceHandle === "source-bottom"
+                    ? "target-top"
+                    : "target-left",
+              };
+            }
+            // Handle other updates
             return {
               ...edge,
-              source: edge.target,
-              target: edge.source,
-              // Swap handles if they exist, otherwise default to sensible opposites
-              sourceHandle:
-                edge.targetHandle === "target-top"
-                  ? "source-bottom"
-                  : "source-right",
-              targetHandle:
-                edge.sourceHandle === "source-bottom"
-                  ? "target-top"
-                  : "target-left",
+              label: newData.label !== undefined ? newData.label : edge.label,
+              animated:
+                newData.animated !== undefined
+                  ? newData.animated
+                  : edge.animated,
+              type: newData.type !== undefined ? newData.type : edge.type,
+              style: {
+                ...edge.style,
+                stroke: newData.animated ? "#f97316" : "#64748b",
+              },
+              markerEnd: {
+                type: MarkerType.ArrowClosed,
+                color: newData.animated ? "#f97316" : "#64748b",
+              },
             };
           }
-          // Handle other updates
-          return {
-            ...edge,
-            label: newData.label !== undefined ? newData.label : edge.label,
-            animated:
-              newData.animated !== undefined ? newData.animated : edge.animated,
-            type: newData.type !== undefined ? newData.type : edge.type,
-            style: {
-              ...edge.style,
-              stroke: newData.animated ? "#f97316" : "#64748b",
-            },
-            markerEnd: {
-              type: MarkerType.ArrowClosed,
-              color: newData.animated ? "#f97316" : "#64748b",
-            },
-          };
+          return edge;
+        });
+        // Re-select the edge to update UI
+        const updatedEdge = updatedEdges.find((e) => e.id === id);
+        if (updatedEdge) {
+          setSelectedElement({ type: "edge", data: updatedEdge });
         }
-        return edge;
-      })
-    );
-    // Re-select the edge to update UI
-    const updatedEdge = edges.find((e) => e.id === id);
-    if (updatedEdge) {
-      setSelectedElement({ type: "edge", data: updatedEdge });
-    }
+        return updatedEdges;
+      });
+      return nds;
+    });
   };
 
   const onDeleteElement = useCallback(
     (id: string) => {
-      if (selectedElement?.type === "node") {
-        setNodes((nds) => nds.filter((node) => node.id !== id));
-        setEdges((eds) =>
-          eds.filter((edge) => edge.source !== id && edge.target !== id)
-        );
-      } else if (selectedElement?.type === "edge") {
-        setEdges((eds) => eds.filter((edge) => edge.id !== id));
-      }
+      // Save state before deleting
+      setNodes((nds) => {
+        setEdges((eds) => {
+          saveToHistory(nds, eds);
+          if (selectedElement?.type === "node") {
+            return eds.filter(
+              (edge) => edge.source !== id && edge.target !== id
+            );
+          } else if (selectedElement?.type === "edge") {
+            return eds.filter((edge) => edge.id !== id);
+          }
+          return eds;
+        });
+        if (selectedElement?.type === "node") {
+          return nds.filter((node) => node.id !== id);
+        }
+        return nds;
+      });
       setSelectedElement(null);
       if (window.innerWidth < 1024) {
         setIsPropertiesOpen(false);
       }
     },
-    [selectedElement, setNodes, setEdges]
+    [selectedElement, setNodes, setEdges, saveToHistory]
   );
 
   const onLayout = useCallback(
@@ -368,29 +525,71 @@ const DiagramEditor = ({
   );
 
   // Handle save
-  const handleSave = useCallback(() => {
-    if (!architecture || !onSave) return;
+  const handleSave = useCallback(async () => {
+    if (!onSave) return;
 
-    const services = nodes.map((node) => ({
-      id: node.id,
-      name: node.data.name,
-      type: node.data.type as any,
-      technology: node.data.technology,
-      description: node.data.description,
-    }));
+    // If no nodes, nothing to save
+    if (nodes.length === 0) {
+      alert("No architecture to save. Please add components to the diagram.");
+      return;
+    }
 
-    const connections = edges.map((edge) => ({
-      source: edge.source,
-      target: edge.target,
-      type: edge.animated ? "async" : ("sync" as any),
-      protocol: typeof edge.label === "string" ? edge.label : "HTTP",
-    }));
+    setIsSaving(true);
+    try {
+      const services = nodes.map((node) => ({
+        id: node.id,
+        name: node.data.name,
+        type: node.data.type as any,
+        technology: node.data.technology,
+        description: node.data.description,
+      }));
 
-    onSave({
-      ...architecture,
-      services,
-      connections,
-    });
+      const connections = edges.map((edge) => ({
+        source: edge.source,
+        target: edge.target,
+        type: edge.animated ? "async" : ("sync" as any),
+        protocol: typeof edge.label === "string" ? edge.label : "HTTP",
+      }));
+
+      // Build architecture from current state, or merge with existing architecture
+      const currentArchitecture: ArchitectureBlueprint = architecture
+        ? {
+            ...architecture,
+            services,
+            connections,
+          }
+        : {
+            id: `manual-${Date.now()}`,
+            prompt: "Manually created architecture",
+            services,
+            connections,
+            patterns: [],
+            scaling_model: "horizontal",
+            summary: "Manually created architecture diagram",
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          };
+
+      await onSave(currentArchitecture);
+
+      // Reset history after successful save
+      const savedState: HistoryState = {
+        nodes: JSON.parse(JSON.stringify(nodes)),
+        edges: JSON.parse(JSON.stringify(edges)),
+      };
+      setHistory((prev) => {
+        if (prev.length > 0) {
+          return [savedState];
+        }
+        return prev;
+      });
+      setHistoryIndex(() => 0);
+    } catch (error) {
+      console.error("Error in handleSave:", error);
+      alert("Failed to save architecture. Please try again.");
+    } finally {
+      setIsSaving(false);
+    }
   }, [architecture, nodes, edges, onSave]);
 
   // Handle export - builds current architecture from nodes and edges
@@ -438,6 +637,7 @@ const DiagramEditor = ({
             scaling_model: "horizontal",
             summary: "Manually created architecture diagram",
             created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
           };
 
       console.log("Exporting architecture:", currentArchitecture);
@@ -450,6 +650,141 @@ const DiagramEditor = ({
     }
   }, [architecture, nodes, edges, onExport]);
 
+  // Handle snapshot - capture diagram as image and download
+  const takeSnapshot = useCallback(async () => {
+    if (!reactFlowWrapperRef.current || !reactFlowInstance) {
+      alert("Unable to capture snapshot. Please try again.");
+      return;
+    }
+
+    try {
+      // Dynamically import html2canvas
+      let html2canvas: any;
+      try {
+        html2canvas = (await import("html2canvas")).default;
+      } catch (importError) {
+        alert(
+          "html2canvas library is required for snapshots. Please install it: npm install html2canvas"
+        );
+        return;
+      }
+
+      // Get the ReactFlow pane element - this contains the actual diagram
+      const reactFlowPane = reactFlowWrapperRef.current.querySelector(
+        ".react-flow__pane"
+      ) as HTMLElement;
+      if (!reactFlowPane) {
+        alert("Could not find diagram pane to capture.");
+        return;
+      }
+
+      // Temporarily hide UI elements for clean capture
+      const controls = reactFlowWrapperRef.current.querySelector(
+        ".react-flow__controls"
+      ) as HTMLElement;
+      const minimap = reactFlowWrapperRef.current.querySelector(
+        ".react-flow__minimap"
+      ) as HTMLElement;
+      const panel = reactFlowWrapperRef.current.querySelector(
+        ".react-flow__panel"
+      ) as HTMLElement;
+      const attribution = reactFlowWrapperRef.current.querySelector(
+        ".react-flow__attribution"
+      ) as HTMLElement;
+
+      const hiddenElements: Array<{
+        element: HTMLElement;
+        originalDisplay: string;
+      }> = [];
+
+      [controls, minimap, panel, attribution].forEach((el) => {
+        if (el) {
+          hiddenElements.push({
+            element: el,
+            originalDisplay: el.style.display,
+          });
+          el.style.display = "none";
+        }
+      });
+
+      // Wait a bit for UI to update
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      // Calculate the bounds of all nodes to capture only the diagram area
+      const nodeElements = reactFlowPane.querySelectorAll(".react-flow__node");
+      let minX = Infinity,
+        minY = Infinity,
+        maxX = -Infinity,
+        maxY = -Infinity;
+
+      if (nodeElements.length > 0) {
+        nodeElements.forEach((node) => {
+          const rect = node.getBoundingClientRect();
+          const paneRect = reactFlowPane.getBoundingClientRect();
+          const relativeX = rect.left - paneRect.left;
+          const relativeY = rect.top - paneRect.top;
+
+          minX = Math.min(minX, relativeX);
+          minY = Math.min(minY, relativeY);
+          maxX = Math.max(maxX, relativeX + rect.width);
+          maxY = Math.max(maxY, relativeY + rect.height);
+        });
+
+        // Add padding
+        const padding = 50;
+        minX = Math.max(0, minX - padding);
+        minY = Math.max(0, minY - padding);
+        maxX = Math.min(reactFlowPane.scrollWidth, maxX + padding);
+        maxY = Math.min(reactFlowPane.scrollHeight, maxY + padding);
+      } else {
+        // If no nodes, capture the entire viewport
+        minX = 0;
+        minY = 0;
+        maxX = reactFlowPane.scrollWidth;
+        maxY = reactFlowPane.scrollHeight;
+      }
+
+      // Capture the canvas with calculated bounds
+      const canvas = await html2canvas(reactFlowPane, {
+        backgroundColor: isDarkMode ? "#111827" : "#f9fafb",
+        scale: 2, // Higher quality
+        useCORS: true,
+        logging: false,
+        x: minX,
+        y: minY,
+        width: maxX - minX,
+        height: maxY - minY,
+        windowWidth: reactFlowPane.scrollWidth,
+        windowHeight: reactFlowPane.scrollHeight,
+      });
+
+      // Restore hidden elements
+      hiddenElements.forEach(({ element, originalDisplay }) => {
+        element.style.display = originalDisplay;
+      });
+
+      // Convert canvas to blob and download
+      canvas.toBlob((blob: Blob | null) => {
+        if (!blob) {
+          alert("Failed to create image. Please try again.");
+          return;
+        }
+
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `diagram-snapshot-${Date.now()}.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      }, "image/png");
+    } catch (error) {
+      console.error("Error taking snapshot:", error);
+      alert("Failed to capture snapshot. Please try again.");
+    }
+  }, [reactFlowInstance, isDarkMode]);
+
   return (
     <ComponentLibraryContext.Provider value={componentLibrary}>
       <div className="flex h-full w-full overflow-hidden bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
@@ -459,6 +794,13 @@ const DiagramEditor = ({
             <h1 className="font-bold text-gray-800 dark:text-white text-lg hidden sm:block">
               Diagram Editor
             </h1>
+            {historyIndex > 0 && (
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-100 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-700 rounded-md text-amber-800 dark:text-amber-200 text-xs font-medium animate-pulse">
+                <span className="w-2 h-2 bg-amber-500 rounded-full"></span>
+                <span className="hidden sm:inline">Unsaved changes</span>
+                <span className="sm:hidden">Unsaved</span>
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-2">
@@ -474,11 +816,48 @@ const DiagramEditor = ({
             <div className="h-6 w-px bg-gray-300 dark:bg-gray-600 mx-1"></div>
 
             <button
+              onClick={handleUndo}
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md text-gray-600 dark:text-gray-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Undo (Ctrl+Z)"
+              disabled={!history || history.length === 0 || historyIndex <= 0}
+            >
+              <Undo className="w-5 h-5" />
+            </button>
+
+            <button
+              onClick={handleRedo}
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md text-gray-600 dark:text-gray-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Redo (Ctrl+Y or Ctrl+Shift+Z)"
+              disabled={
+                !history ||
+                history.length === 0 ||
+                historyIndex >= history.length - 1
+              }
+            >
+              <Redo className="w-5 h-5" />
+            </button>
+
+            <div className="h-6 w-px bg-gray-300 dark:bg-gray-600 mx-1"></div>
+
+            <button
               onClick={() => setIsHelpOpen(true)}
               className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md text-gray-600 dark:text-gray-300 transition-colors"
               title="Help & Instructions"
             >
               <HelpCircle className="w-5 h-5" />
+            </button>
+
+            <button
+              onClick={handleSave}
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md text-gray-600 dark:text-gray-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Save Architecture"
+              disabled={!onSave || nodes.length === 0 || isSaving}
+            >
+              {isSaving ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : (
+                <Save className="w-5 h-5" />
+              )}
             </button>
 
             <button
@@ -488,6 +867,14 @@ const DiagramEditor = ({
               disabled={!onExport || nodes.length === 0}
             >
               <Download className="w-5 h-5" />
+            </button>
+            <button
+              onClick={takeSnapshot}
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md text-gray-600 dark:text-gray-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Take Snapshot"
+              disabled={!onExport || nodes.length === 0}
+            >
+              <Camera className="w-5 h-5" />
             </button>
 
             {/* <button
@@ -536,7 +923,10 @@ const DiagramEditor = ({
           </div>
 
           {/* Canvas */}
-          <div className="flex-1 h-full relative bg-gray-50 dark:bg-gray-900 transition-colors duration-300 overflow-hidden">
+          <div
+            ref={reactFlowWrapperRef}
+            className="flex-1 h-full relative bg-gray-50 dark:bg-gray-900 transition-colors duration-300 overflow-hidden"
+          >
             <ReactFlow
               nodes={nodes}
               edges={edges}

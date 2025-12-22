@@ -14,8 +14,10 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2, Mail, Lock, User, ArrowRight } from "lucide-react";
+import {  useRouter } from "next/navigation";
 
 export default function SignupPage() {
+  const router = useRouter();
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -81,6 +83,7 @@ export default function SignupPage() {
       });
 
       if (!verifyResponse.ok) {
+        router.push("/login");
         throw new Error("Failed to verify authentication.");
       }
 
