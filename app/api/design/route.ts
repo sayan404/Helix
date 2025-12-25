@@ -91,6 +91,8 @@ export async function POST(request: NextRequest) {
             estimated_cost: existingArchRecord.estimatedCost as any,
             created_at: existingArchRecord.createdAt.toISOString(),
             updated_at: existingArchRecord.updatedAt.toISOString(),
+            product_description: (existingArchRecord as any).productDescription,
+            workflow_documentation: (existingArchRecord as any).workflowDocumentation,
           };
           isIteration = true;
         } else if (
@@ -120,6 +122,8 @@ export async function POST(request: NextRequest) {
           estimated_cost: estimateCost(architecture),
           created_at: existingArch?.created_at || new Date().toISOString(),
           updated_at: new Date().toISOString(),
+          product_description: architecture.product_description,
+          workflow_documentation: architecture.workflow_documentation,
         };
 
         let savedArchitecture;

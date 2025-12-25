@@ -68,8 +68,86 @@ export async function generateArchitecture(
   prompt: string,
   existingArchitecture?: ArchitectureBlueprint
 ): Promise<ArchitectureGenerationResult> {
+  // Step 1: Analyze the user prompt and determine what components are needed
+  const analysisPrompt = `You are a senior system architect. Analyze the following user prompt and determine what type of architecture is needed.
+
+CRITICAL: First, determine if the prompt requires:
+- "frontend-only" → If the prompt can be satisfied with just UI components (e.g., "Create a card", "Build a landing page", etc.)
+- "backend-only" → If the prompt is about APIs, services, or data processing without UI (e.g., "Create a REST API", "Build a data pipeline", etc.)
+- "both" → If the prompt requires both frontend and backend (e.g., "Build a todo app", "Create an e-commerce platform")
+
+Then create an enhanced, comprehensive description that:
+1. Identifies the core requirements and use cases
+2. Determines the optimal architecture pattern (monolith, microservices, serverless, hybrid, etc.) based on scalability, sustainability, and avoiding vendor lock-in
+3. Only includes frontend requirements if needed (frontend-only or both)
+4. Only includes backend requirements if needed (backend-only or both)
+5. Identifies communication patterns needed between components (only if both frontend and backend are needed)
+6. Ensures the architecture is scalable, sustainable, and vendor-agnostic
+
+User Prompt:
+${prompt}
+
+Output a JSON object with this structure:
+{
+  "component_type": "frontend-only|backend-only|both",
+  "rationale": "Brief explanation of why this component type was chosen",
+  "enhanced_description": "A comprehensive description of the system architecture that explains the best possible architecture both scalability-wise and sustainability-wise with no vendor lock-in",
+  "architecture_pattern": "monolith|microservices|serverless|hybrid|layered|event-driven|etc",
+  "pattern_rationale": "Brief explanation of why this pattern was chosen",
+  "frontend_requirements": ["list of frontend requirements"] (only if component_type is "frontend-only" or "both"),
+  "backend_requirements": ["list of backend requirements"] (only if component_type is "backend-only" or "both"),
+  "communication_patterns": ["REST API", "GraphQL", "WebSocket", "gRPC", "Event Streaming", etc] (only if component_type is "both", otherwise empty array),
+  "scalability_approach": "Description of how the system will scale",
+  "sustainability_considerations": "Description of sustainability aspects",
+  "vendor_lock_in_mitigation": "How vendor lock-in is avoided"
+}
+
+Output ONLY valid JSON, no markdown, no code fences.`;
+
+  let enhancedDescription: any = {};
+
+  try {
+    const analysisResponse = await ai.models.generateContent({
+      model: "gemini-2.5-flash-lite",
+      contents: analysisPrompt,
+    });
+
+    let analysisText = analysisResponse.text?.trim() || "";
+    if (analysisText.startsWith("```json")) {
+      analysisText = analysisText
+        .replace(/```json\n?/g, "")
+        .replace(/```\n?/g, "");
+    } else if (analysisText.startsWith("```")) {
+      analysisText = analysisText.replace(/```\n?/g, "");
+    }
+
+    enhancedDescription = JSON.parse(analysisText);
+  } catch (error) {
+    console.error("Error analyzing prompt, using original:", error);
+    enhancedDescription = {
+      component_type: "both",
+      rationale: "Default: assuming both frontend and backend needed",
+      enhanced_description: prompt,
+      architecture_pattern: "microservices",
+      pattern_rationale: "Default pattern",
+      frontend_requirements: [],
+      backend_requirements: [],
+      communication_patterns: ["REST API"],
+      scalability_approach: "Horizontal scaling",
+      sustainability_considerations: "Standard practices",
+      vendor_lock_in_mitigation: "Open-source technologies",
+    };
+  }
+
+  const componentType = enhancedDescription.component_type || "both";
+  const needsFrontend =
+    componentType === "frontend-only" || componentType === "both";
+  const needsBackend =
+    componentType === "backend-only" || componentType === "both";
+
+  // Step 2: Generate architecture based on component type
   let systemPrompt = `
-You are a senior system architect. Your task is to convert the user prompt into a well-structured backend system design.
+You are a senior system architect. Your task is to convert the enhanced description into a well-structured system design.
 You MUST output only valid JSON. Do not include commentary, markdown, code fences, headings, apologies, or extra text.
 CRITICAL OUTPUT CONSTRAINTS (failure if violated):
 - Output must be a SINGLE JSON object only (not an array), starting with "{" and ending with "}".
@@ -79,30 +157,129 @@ CRITICAL OUTPUT CONSTRAINTS (failure if violated):
 - Do NOT include additional keys outside the specified schema.
 - Other than a architecture JSON, do not output anything else.
 
+Component Type Required: ${componentType}
+Rationale: ${enhancedDescription.rationale || ""}
+
+Enhanced Architecture Description:
+${enhancedDescription.enhanced_description || prompt}
+
+Architecture Pattern: ${
+    enhancedDescription.architecture_pattern || "microservices"
+  }
+Pattern Rationale: ${enhancedDescription.pattern_rationale || ""}
+${
+  needsFrontend
+    ? `Frontend Requirements: ${JSON.stringify(
+        enhancedDescription.frontend_requirements || []
+      )}`
+    : ""
+}
+${
+  needsBackend
+    ? `Backend Requirements: ${JSON.stringify(
+        enhancedDescription.backend_requirements || []
+      )}`
+    : ""
+}
+${
+  componentType === "both"
+    ? `Communication Patterns: ${JSON.stringify(
+        enhancedDescription.communication_patterns || []
+      )}`
+    : ""
+}
+
 Follow these rules strictly:
 
-1. Identify all essential services required by the system (authentication, gateway, domain services, storage, cache, async processing, external integrations).
-2. Choose technologies in a developer-friendly way:
+1. Generate architecture components based on the component type:
+   ${
+     needsFrontend
+       ? "- Frontend components (web apps, mobile apps, desktop apps if needed)"
+       : ""
+   }
+   ${
+     needsBackend
+       ? "- Backend services (authentication, gateway, domain services, storage, cache, async processing, external integrations)"
+       : ""
+   }
+   ${
+     needsBackend
+       ? "- Infrastructure components (databases, caches, queues, gateways, CDNs, load balancers)"
+       : ""
+   }
+   ${
+     componentType === "both"
+       ? "- Communication patterns between frontend and backend"
+       : ""
+   }
+   
+   IMPORTANT: 
+   - If component_type is "frontend-only", ONLY generate frontend components. Do NOT include any backend services, databases, or APIs.
+   - If component_type is "backend-only", ONLY generate backend services and infrastructure. Do NOT include any frontend components.
+   - If component_type is "both", generate both frontend and backend with communication patterns.
+
+2. Architecture Pattern Selection:
+   - DO NOT assume microservices by default. Choose the pattern that best fits the requirements:
+     * Monolith: For simple applications, small teams, or when microservices overhead isn't justified
+     * Microservices: For complex systems with independent scaling needs, multiple teams, or domain boundaries
+     * Serverless: For event-driven, sporadic workloads, or cost optimization
+     * Layered: For traditional enterprise applications
+     * Event-driven: For real-time systems, decoupled services
+     * Hybrid: When different parts need different patterns
+   - The pattern should align with: ${
+     enhancedDescription.architecture_pattern || "microservices"
+   }
+
+3. Choose technologies in a developer-friendly way:
    - If the user DOES NOT explicitly require a specific tech stack, you MUST minimize tech variety and standardize the stack across the architecture.
    - Prefer one primary application stack across most services (same language + framework) rather than mixing stacks.
    - Prefer one primary database (unless a second DB is clearly justified), one cache, and one queue/stream.
    - Only introduce a new technology when there is a clear reason (compliance, special workload, strong functional requirement).
    - If the user DOES specify technologies, follow them and keep the rest consistent with that choice.
-3. Assign realistic and commonly used technologies for each service based on industry standards. Prefer:
+   - AVOID vendor lock-in: Prefer open-source, portable technologies (PostgreSQL over proprietary DBs, Redis over vendor-specific caches, etc.)
+
+4. Docker and Containerization:
+   - DO NOT assume Docker/containerization is required unless:
+     * The user explicitly mentions Docker, containers, or containerization in their prompt
+     * The architecture absolutely requires containerization (e.g., complex microservices with multiple databases, or specific deployment requirements)
+   - Prefer native/local development setups when possible (e.g., npm/pnpm for Node.js, pip/poetry for Python, etc.)
+   - Only include Docker-related components or services if they are explicitly requested or absolutely necessary for the architecture to function
+   - Focus on the application architecture itself, not deployment infrastructure unless specifically requested
+
+5. Assign realistic and commonly used technologies for each service based on industry standards. Prefer:
+   - Frontend: React, Vue, Angular, Next.js, Svelte, Flutter, React Native, etc.
+   - Backend: Node.js, Python (FastAPI/Flask/Django), Java (Spring Boot), Go, C# (.NET), etc.
    - Databases: PostgreSQL, MongoDB, MySQL, Cassandra, DynamoDB etc.
    - Cache: Redis, Memcached, Edge Cache etc.
    - Message Queue: Kafka, RabbitMQ, Redis Streams etc.
-   - API Gateway: NGINX, Envoy etc.
+   - API Gateway: NGINX, Envoy, Kong etc.
    - Object Storage: S3-compatible storage
-4. For each service, write a short but meaningful description of its responsibility.
-5. Clearly define connections:
-   - Use 'sync' for API calls (HTTP/gRPC/REST)
+   - CDN: Cloudflare, AWS CloudFront, etc.
+
+6. For each service/component, write a short but meaningful description of its responsibility.
+
+7. Clearly define connections:
+   ${
+     componentType === "both"
+       ? `- Use 'sync' for API calls (HTTP/gRPC/REST/GraphQL)
    - Use 'async' / 'pub-sub' for event-driven communication (Kafka, RabbitMQ, Redis Streams etc.)
-6. Determine patterns from the architecture such as:
-   ["microservices", "event-driven", "layered", "cqrs", "pub-sub", "monolith", ... etc]
-7. Infer scaling model:
-   - "horizontal" → if using microservices / stateless services
-   - "vertical" → if a single core service grows vertically
+   - Include connections between frontend and backend components
+   - Specify protocols: HTTP, HTTPS, WebSocket, gRPC, GraphQL, AMQP, Kafka, etc.`
+       : componentType === "frontend-only"
+       ? `- Only include connections between frontend components if needed (e.g., component composition, state management)
+   - Do NOT include any backend API connections`
+       : `- Use 'sync' for API calls (HTTP/gRPC/REST/GraphQL)
+   - Use 'async' / 'pub-sub' for event-driven communication (Kafka, RabbitMQ, Redis Streams etc.)
+   - Include connections between backend services and infrastructure
+   - Specify protocols: HTTP, HTTPS, WebSocket, gRPC, GraphQL, AMQP, Kafka, etc.`
+   }
+
+8. Determine patterns from the architecture such as:
+   ["microservices", "event-driven", "layered", "cqrs", "pub-sub", "monolith", "serverless", "api-gateway", "bff", ... etc]
+
+9. Infer scaling model:
+   - "horizontal" → if using microservices / stateless services / serverless
+   - "vertical" → if a single core service grows vertically (monolith)
    - "hybrid" → if mixed`;
 
   // If existing architecture is provided, include it as context for iteration
@@ -131,27 +308,97 @@ The JSON output MUST match this schema exactly:
   "services": [
     {
       "id": "unique-id-lowercase-hyphenated",
-      "name": "Service Name",
-  "type": "service|database|cache|queue|gateway|cdn|load-balancer|etc...",
-      "technology": "Technology Choice (e.g., Redis, PostgreSQL, Kafka, Node.js)",
+      "name": "Component Name",
+      "type": "service|database|cache|queue|gateway|cdn|load-balancer|frontend|mobile|desktop",
+      "technology": "Technology Choice (e.g., React, Node.js, Redis, PostgreSQL, Kafka)",
       "description": "Plain-language explanation of the component role"
     }
   ],
   "connections": [
     {
-      "source": "service-id",
-      "target": "service-id",
+      "source": "component-id",
+      "target": "component-id",
       "type": "sync|async|pub-sub",
-      "protocol": "HTTP|gRPC|AMQP|Redis-Streams|Kafka"
+      "protocol": "HTTP|HTTPS|WebSocket|gRPC|GraphQL|AMQP|Redis-Streams|Kafka"
     }
   ],
-  "patterns": ["microservices", "event-driven", ...],
+  "patterns": ["microservices", "event-driven", "layered", "monolith", "serverless", ...],
   "scaling_model": "horizontal|vertical|hybrid",
-  "summary": "1-3 sentence human readable explanation of the architecture"
+  "summary": "1-3 sentence human readable explanation of the complete architecture",
+  "product_description": "A comprehensive 2-4 paragraph description of the product/system, its purpose, key features, and target users",
+  "workflow_documentation": {
+    "components": [
+      {
+        "id": "component-id",
+        "name": "Component Name",
+        "description": "What this component does",
+        "endpoints": [
+          {
+            "method": "GET|POST|PUT|DELETE|PATCH",
+            "path": "/api/v1/resource",
+            "description": "What this endpoint does",
+            "request": {
+              "body": "Request body structure (if applicable)",
+              "query": "Query parameters (if applicable)",
+              "headers": "Required headers (if applicable)"
+            },
+            "response": {
+              "status": 200,
+              "body": "Response body structure"
+            }
+          }
+        ]
+      }
+    ],
+    "workflows": [
+      {
+        "name": "Workflow Name (e.g., User Registration Flow)",
+        "description": "Description of the workflow",
+        "steps": [
+          {
+            "component": "component-id",
+            "action": "Action performed (e.g., POST /api/auth/register)",
+            "description": "What happens in this step"
+          }
+        ]
+      }
+    ]
+  }
 }
 
-User request:
-${prompt}
+IMPORTANT NOTES:
+${
+  needsFrontend
+    ? `- Include frontend components (type: "frontend", "mobile", or "desktop") in the services array`
+    : ""
+}
+${
+  needsBackend
+    ? `- Include backend services and infrastructure components in the services array`
+    : ""
+}
+${
+  componentType === "both"
+    ? `- Include connections from frontend to backend (e.g., frontend -> API Gateway -> Backend Service)`
+    : componentType === "frontend-only"
+    ? `- Only include connections between frontend components if needed`
+    : `- Include connections between backend services and infrastructure`
+}
+${
+  needsBackend
+    ? `- Generate endpoints for backend services that expose APIs`
+    : `- Do NOT generate endpoints for frontend-only architecture`
+}
+- Generate workflows that show how different components interact to complete user journeys
+- The product_description should be comprehensive and explain what the system does
+- The workflow_documentation should include all major user flows and system interactions
+${
+  componentType === "frontend-only"
+    ? `- CRITICAL: Do NOT include any backend services, databases, APIs, or infrastructure components. Only frontend components.`
+    : componentType === "backend-only"
+    ? `- CRITICAL: Do NOT include any frontend components. Only backend services and infrastructure.`
+    : ""
+}
 
 Return ONLY the JSON.`;
 

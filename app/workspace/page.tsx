@@ -48,6 +48,7 @@ import componentLibrary from "@/components/diagram/componentLibrary.json";
 import { FolderOpen, Clock } from "lucide-react";
 import { LoadSimulationChart } from "@/components/LoadSimulationChart";
 import { useRouter } from "next/navigation";
+import { useToast } from "@/components/ui/use-toast";
 
 type ChatMode = "generate" | "evaluate";
 
@@ -59,8 +60,31 @@ type ChatMessage = {
   timestamp: string;
 };
 
+// Helper function to determine if architecture is frontend-only
+const isFrontendOnly = (arch: ArchitectureBlueprint | null): boolean => {
+  if (!arch || !arch.services || arch.services.length === 0) return false;
+
+  const frontendTypes = ["frontend", "mobile", "desktop"];
+  const backendTypes = [
+    "service",
+    "database",
+    "cache",
+    "queue",
+    "gateway",
+    "cdn",
+    "load-balancer",
+  ];
+
+  const hasFrontend = arch.services.some((s) => frontendTypes.includes(s.type));
+  const hasBackend = arch.services.some((s) => backendTypes.includes(s.type));
+
+  // Frontend-only if has frontend components but no backend components
+  return hasFrontend && !hasBackend;
+};
+
 export default function Home() {
   const router = useRouter();
+  const { toast } = useToast();
   const [architecture, setArchitecture] =
     useState<ArchitectureBlueprint | null>(null);
   const [architectureId, setArchitectureId] = useState<number | null>(null);
@@ -224,7 +248,11 @@ export default function Home() {
       }
     } catch (error) {
       console.error("Error saving architecture:", error);
-      alert("Failed to save architecture. Please try again.");
+      toast({
+        title: "Failed to save",
+        description: "Failed to save architecture. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -572,7 +600,11 @@ export default function Home() {
       setScalabilityMetrics(data);
     } catch (error) {
       console.error("Error simulating load:", error);
-      alert("Failed to simulate load. Please try again.");
+      toast({
+        title: "Simulation failed",
+        description: "Failed to simulate load. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setIsSimulating(false);
     }
@@ -617,13 +649,13 @@ export default function Home() {
         const errBody = await response.json().catch(() => ({} as any));
         // Handle token limit gracefully - show message but don't redirect
         if (errBody?.error && errBody?.redirect && errBody?.quota) {
-          alert(
-            `⚠️ Token limit reached. You've used all ${
+          toast({
+            title: "Token limit reached",
+            description: `You've used all ${
               errBody.quota.maxAllowedTokens?.toLocaleString() || 1000
-            } tokens.\n\nYou can still view your past generated code, but new generation requires more tokens. Visit ${
-              errBody.redirect
-            } to upgrade.`
-          );
+            } tokens. You can still view your past generated code, but new generation requires more tokens.`,
+            variant: "destructive",
+          });
           fetchTokenQuota();
           return;
         }
@@ -717,16 +749,25 @@ export default function Home() {
           ? `\n\nThe AI provider is temporarily overloaded. Please retry in a few seconds.`
           : "";
         const details = failures
-          .map((f) => `- ${f.serviceName}: ${f.message}`)
-          .join("\n");
+          .map((f) => `${f.serviceName}: ${f.message}`)
+          .join(", ");
 
-        alert(
-          `Generated code for ${templates.length}/${services.length} services.\n\nFailed services:\n${details}${retryHint}`
-        );
+        toast({
+          title: `Generated code for ${templates.length}/${services.length} services`,
+          description:
+            failures.length > 0
+              ? `Failed services: ${details}${retryHint}`
+              : "All services generated successfully!",
+          variant: failures.length > 0 ? "destructive" : "success",
+        });
       }
     } catch (error) {
       console.error("Error generating code:", error);
-      alert("Failed to generate code. Please try again.");
+      toast({
+        title: "Code generation failed",
+        description: "Failed to generate code. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setIsGeneratingCode(false);
       fetchTokenQuota();
@@ -772,7 +813,11 @@ export default function Home() {
       URL.revokeObjectURL(url);
     } catch (error) {
       console.error("Error exporting project:", error);
-      alert("Failed to export project. Please try again.");
+      toast({
+        title: "Export failed",
+        description: "Failed to export project. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -849,7 +894,11 @@ export default function Home() {
       URL.revokeObjectURL(url);
     } catch (e) {
       console.error("Export boilerplate error:", e);
-      alert("Failed to export boilerplate zip. Please try again.");
+      toast({
+        title: "Export failed",
+        description: "Failed to export boilerplate zip. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -965,25 +1014,27 @@ export default function Home() {
                       </>
                     )}
                   </Button>
-                  <Button
-                    onClick={handleGenerateCode}
-                    disabled={!architecture || isGeneratingCode}
-                    variant="outline"
-                    size="sm"
-                    className="border-slate-700 hover:border-purple-500/50 hover:bg-purple-500/10 text-slate-300 hover:text-purple-200"
-                  >
-                    {isGeneratingCode ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Generating...
-                      </>
-                    ) : (
-                      <>
-                        <Code className="w-4 h-4 mr-2" />
-                        Generate Code
-                      </>
-                    )}
-                  </Button>
+                  {!isFrontendOnly(architecture) && (
+                    <Button
+                      onClick={handleGenerateCode}
+                      disabled={!architecture || isGeneratingCode}
+                      variant="outline"
+                      size="sm"
+                      className="border-slate-700 hover:border-purple-500/50 hover:bg-purple-500/10 text-slate-300 hover:text-purple-200"
+                    >
+                      {isGeneratingCode ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Generating...
+                        </>
+                      ) : (
+                        <>
+                          <Code className="w-4 h-4 mr-2" />
+                          Generate Code
+                        </>
+                      )}
+                    </Button>
+                  )}
                   <Button
                     onClick={handleExport}
                     disabled={!architecture}
@@ -1280,12 +1331,14 @@ export default function Home() {
                   >
                     Design
                   </TabsTrigger>
-                  <TabsTrigger
-                    value="code"
-                    className="data-[state=active]:bg-blue-600 data-[state=active]:text-white"
-                  >
-                    Generated Code
-                  </TabsTrigger>
+                  {!isFrontendOnly(architecture) && (
+                    <TabsTrigger
+                      value="code"
+                      className="data-[state=active]:bg-blue-600 data-[state=active]:text-white"
+                    >
+                      Code
+                    </TabsTrigger>
+                  )}
                   <TabsTrigger
                     value="simulation"
                     className="data-[state=active]:bg-blue-600 data-[state=active]:text-white"
@@ -1325,25 +1378,189 @@ export default function Home() {
                   </Card>
                 </TabsContent>
 
-                <TabsContent
-                  value="code"
-                  className="h-full mt-0 overflow-hidden"
-                >
-                  <Card className="border-slate-800/50 bg-slate-900/30 backdrop-blur-xl shadow-2xl h-full relative">
-                    <CardHeader>
-                      <div className="flex items-start justify-between gap-4">
-                        <div>
-                          <CardTitle className="text-slate-100 flex items-center gap-2">
-                            Generated Code Templates
-                          </CardTitle>
-                        </div>
+                {!isFrontendOnly(architecture) && (
+                  <TabsContent
+                    value="code"
+                    className="h-full mt-0 overflow-hidden"
+                  >
+                    <Card className="border-slate-800/50 bg-slate-900/30 backdrop-blur-xl shadow-2xl h-full relative">
+                      <CardHeader>
+                        <div className="flex items-start justify-between gap-4">
+                          <div>
+                            <CardTitle className="text-slate-100 flex items-center gap-2">
+                              Generated Code Templates
+                            </CardTitle>
+                          </div>
 
-                        <div className="flex items-center gap-2">
-                          {codeTemplates.length > 0 && (
+                          <div className="flex items-center gap-2">
+                            {codeTemplates.length > 0 && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={handleRegenerateCode}
+                                disabled={
+                                  !architecture ||
+                                  isGeneratingCode ||
+                                  (tokenQuota
+                                    ? tokenQuota.tokensLeft <= 0
+                                    : false)
+                                }
+                                className={`border-slate-700 hover:bg-slate-800 ${
+                                  tokenQuota && tokenQuota.tokensLeft <= 0
+                                    ? "cursor-not-allowed opacity-50"
+                                    : ""
+                                }`}
+                              >
+                                {isGeneratingCode ? (
+                                  <>
+                                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                    Regenerating...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Activity className="w-4 h-4 mr-2" />
+                                    Regenerate
+                                  </>
+                                )}
+                              </Button>
+                            )}
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={handleRegenerateCode}
+                              onClick={handleCopyAllBoilerplate}
+                              disabled={codeTemplates.length === 0}
+                              className="border-slate-700 hover:bg-slate-800"
+                              title="Copy all generated boilerplate"
+                            >
+                              {copiedCode === "all-boilerplate" ? (
+                                <Check className="w-4 h-4 mr-2 text-green-400" />
+                              ) : (
+                                <Copy className="w-4 h-4 mr-2" />
+                              )}
+                              Copy all
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={handleExportBoilerplate}
+                              disabled={codeTemplates.length === 0}
+                              className="border-slate-700 hover:bg-slate-800"
+                              title="Export all generated boilerplate"
+                            >
+                              <FileCode className="w-4 h-4 mr-2" />
+                              Export
+                            </Button>
+                          </div>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="h-[calc(100vh-14rem)] overflow-y-auto custom-scrollbar">
+                        {codeTemplates.length > 0 ? (
+                          <div className="space-y-8">
+                            {codeTemplates.map((template, idx) => (
+                              <div key={idx} className="space-y-4">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    toggleServiceCollapse(template.service_name)
+                                  }
+                                  className="w-full flex items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-950/40 px-4 py-3 hover:bg-slate-950/60 transition-colors"
+                                  title="Collapse/Expand"
+                                >
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <Server className="w-4 h-4 text-blue-400 shrink-0" />
+                                    <span className="text-lg font-semibold text-blue-400 truncate">
+                                      {template.service_name}
+                                    </span>
+                                    <span className="text-xs text-slate-500">
+                                      (
+                                      {Object.keys(template.files || {}).length}{" "}
+                                      files)
+                                    </span>
+                                  </div>
+                                  {collapsedServices[template.service_name] ? (
+                                    <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />
+                                  ) : (
+                                    <ChevronUp className="w-4 h-4 text-slate-400 shrink-0" />
+                                  )}
+                                </button>
+
+                                {!collapsedServices[template.service_name] && (
+                                  <div className="grid gap-4">
+                                    {Object.entries(template.files || {}).map(
+                                      ([filename, content]) => {
+                                        const fileKey = `${template.service_name}::${filename}`;
+                                        const isCollapsed =
+                                          !!collapsedFiles[fileKey];
+                                        return (
+                                          <div
+                                            key={filename}
+                                            className="rounded-lg border border-slate-800 bg-slate-950/50 overflow-hidden"
+                                          >
+                                            <div className="px-4 py-2 bg-slate-900 border-b border-slate-800 flex justify-between items-center">
+                                              <button
+                                                type="button"
+                                                onClick={() =>
+                                                  toggleFileCollapse(
+                                                    template.service_name,
+                                                    filename
+                                                  )
+                                                }
+                                                className="flex items-center gap-2 min-w-0 text-left hover:opacity-90 transition-opacity"
+                                                title="Collapse/Expand file"
+                                              >
+                                                {isCollapsed ? (
+                                                  <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />
+                                                ) : (
+                                                  <ChevronUp className="w-4 h-4 text-slate-400 shrink-0" />
+                                                )}
+                                                <span className="text-xs font-mono text-slate-400 truncate">
+                                                  {filename}
+                                                </span>
+                                              </button>
+
+                                              <button
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  handleCopyCode(
+                                                    content,
+                                                    `${idx}-${filename}`
+                                                  );
+                                                }}
+                                                className="text-slate-500 hover:text-white transition-colors"
+                                                title="Copy code"
+                                              >
+                                                {copiedCode ===
+                                                `${idx}-${filename}` ? (
+                                                  <Check className="w-3.5 h-3.5 text-green-400" />
+                                                ) : (
+                                                  <Copy className="w-3.5 h-3.5" />
+                                                )}
+                                              </button>
+                                            </div>
+
+                                            {!isCollapsed && (
+                                              <pre className="p-4 overflow-x-auto text-sm text-slate-300 font-mono">
+                                                <code>
+                                                  {contentToString(content)}
+                                                </code>
+                                              </pre>
+                                            )}
+                                          </div>
+                                        );
+                                      }
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="flex flex-col items-center justify-center h-full text-slate-500">
+                            <Code className="w-12 h-12 mb-4 opacity-50" />
+                            <p>No code generated yet.</p>
+                            <Button
+                              variant="outline"
+                              onClick={handleGenerateCode}
                               disabled={
                                 !architecture ||
                                 isGeneratingCode ||
@@ -1351,190 +1568,31 @@ export default function Home() {
                                   ? tokenQuota.tokensLeft <= 0
                                   : false)
                               }
-                              className={`border-slate-700 hover:bg-slate-800 ${
+                              className="mt-4 border-slate-700 hover:bg-slate-800"
+                              title={
                                 tokenQuota && tokenQuota.tokensLeft <= 0
-                                  ? "cursor-not-allowed opacity-50"
-                                  : ""
-                              }`}
+                                  ? "You have reached token limit. Please support the project to continue."
+                                  : undefined
+                              }
                             >
-                              {isGeneratingCode ? (
-                                <>
-                                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                  Regenerating...
-                                </>
-                              ) : (
-                                <>
-                                  <Activity className="w-4 h-4 mr-2" />
-                                  Regenerate
-                                </>
-                              )}
+                              {isGeneratingCode
+                                ? "Generating..."
+                                : "Generate Code Now"}
                             </Button>
-                          )}
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={handleCopyAllBoilerplate}
-                            disabled={codeTemplates.length === 0}
-                            className="border-slate-700 hover:bg-slate-800"
-                            title="Copy all generated boilerplate"
-                          >
-                            {copiedCode === "all-boilerplate" ? (
-                              <Check className="w-4 h-4 mr-2 text-green-400" />
-                            ) : (
-                              <Copy className="w-4 h-4 mr-2" />
-                            )}
-                            Copy all
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={handleExportBoilerplate}
-                            disabled={codeTemplates.length === 0}
-                            className="border-slate-700 hover:bg-slate-800"
-                            title="Export all generated boilerplate"
-                          >
-                            <FileCode className="w-4 h-4 mr-2" />
-                            Export
-                          </Button>
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="h-[calc(100vh-14rem)] overflow-y-auto custom-scrollbar">
-                      {codeTemplates.length > 0 ? (
-                        <div className="space-y-8">
-                          {codeTemplates.map((template, idx) => (
-                            <div key={idx} className="space-y-4">
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  toggleServiceCollapse(template.service_name)
-                                }
-                                className="w-full flex items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-950/40 px-4 py-3 hover:bg-slate-950/60 transition-colors"
-                                title="Collapse/Expand"
-                              >
-                                <div className="flex items-center gap-2 min-w-0">
-                                  <Server className="w-4 h-4 text-blue-400 shrink-0" />
-                                  <span className="text-lg font-semibold text-blue-400 truncate">
-                                    {template.service_name}
-                                  </span>
-                                  <span className="text-xs text-slate-500">
-                                    ({Object.keys(template.files || {}).length}{" "}
-                                    files)
-                                  </span>
-                                </div>
-                                {collapsedServices[template.service_name] ? (
-                                  <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />
-                                ) : (
-                                  <ChevronUp className="w-4 h-4 text-slate-400 shrink-0" />
-                                )}
-                              </button>
-
-                              {!collapsedServices[template.service_name] && (
-                                <div className="grid gap-4">
-                                  {Object.entries(template.files || {}).map(
-                                    ([filename, content]) => {
-                                      const fileKey = `${template.service_name}::${filename}`;
-                                      const isCollapsed =
-                                        !!collapsedFiles[fileKey];
-                                      return (
-                                        <div
-                                          key={filename}
-                                          className="rounded-lg border border-slate-800 bg-slate-950/50 overflow-hidden"
-                                        >
-                                          <div className="px-4 py-2 bg-slate-900 border-b border-slate-800 flex justify-between items-center">
-                                            <button
-                                              type="button"
-                                              onClick={() =>
-                                                toggleFileCollapse(
-                                                  template.service_name,
-                                                  filename
-                                                )
-                                              }
-                                              className="flex items-center gap-2 min-w-0 text-left hover:opacity-90 transition-opacity"
-                                              title="Collapse/Expand file"
-                                            >
-                                              {isCollapsed ? (
-                                                <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />
-                                              ) : (
-                                                <ChevronUp className="w-4 h-4 text-slate-400 shrink-0" />
-                                              )}
-                                              <span className="text-xs font-mono text-slate-400 truncate">
-                                                {filename}
-                                              </span>
-                                            </button>
-
-                                            <button
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleCopyCode(
-                                                  content,
-                                                  `${idx}-${filename}`
-                                                );
-                                              }}
-                                              className="text-slate-500 hover:text-white transition-colors"
-                                              title="Copy code"
-                                            >
-                                              {copiedCode ===
-                                              `${idx}-${filename}` ? (
-                                                <Check className="w-3.5 h-3.5 text-green-400" />
-                                              ) : (
-                                                <Copy className="w-3.5 h-3.5" />
-                                              )}
-                                            </button>
-                                          </div>
-
-                                          {!isCollapsed && (
-                                            <pre className="p-4 overflow-x-auto text-sm text-slate-300 font-mono">
-                                              <code>
-                                                {contentToString(content)}
-                                              </code>
-                                            </pre>
-                                          )}
-                                        </div>
-                                      );
-                                    }
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="flex flex-col items-center justify-center h-full text-slate-500">
-                          <Code className="w-12 h-12 mb-4 opacity-50" />
-                          <p>No code generated yet.</p>
-                          <Button
-                            variant="outline"
-                            onClick={handleGenerateCode}
-                            disabled={
-                              !architecture ||
-                              isGeneratingCode ||
-                              (tokenQuota ? tokenQuota.tokensLeft <= 0 : false)
-                            }
-                            className="mt-4 border-slate-700 hover:bg-slate-800"
-                            title={
-                              tokenQuota && tokenQuota.tokensLeft <= 0
-                                ? "You have reached token limit. Please support the project to continue."
-                                : undefined
-                            }
-                          >
-                            {isGeneratingCode
-                              ? "Generating..."
-                              : "Generate Code Now"}
-                          </Button>
+                          </div>
+                        )}
+                      </CardContent>
+                      {isLoadingCodeTemplates && (
+                        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-slate-950/50 backdrop-blur-sm border border-slate-800/50 rounded-lg">
+                          <Loader2 className="w-6 h-6 animate-spin text-blue-400" />
+                          <div className="text-sm text-slate-300">
+                            Loading saved code templates...
+                          </div>
                         </div>
                       )}
-                    </CardContent>
-                    {isLoadingCodeTemplates && (
-                      <div className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-slate-950/50 backdrop-blur-sm border border-slate-800/50 rounded-lg">
-                        <Loader2 className="w-6 h-6 animate-spin text-blue-400" />
-                        <div className="text-sm text-slate-300">
-                          Loading saved code templates...
-                        </div>
-                      </div>
-                    )}
-                  </Card>
-                </TabsContent>
+                    </Card>
+                  </TabsContent>
+                )}
 
                 <TabsContent
                   value="simulation"

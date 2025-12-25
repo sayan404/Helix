@@ -43,6 +43,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { ScalabilityMetrics, CodeTemplate } from "@/lib/types";
+import { useToast } from "@/components/ui/use-toast";
 
 import CustomNode, { ComponentLibraryContext } from "./CustomNode";
 import { Sidebar } from "./Sidebar";
@@ -75,6 +76,7 @@ const DiagramEditor = ({
   isSimulating = false,
   isGeneratingCode = false,
 }: DiagramEditorProps) => {
+  const { toast } = useToast();
   // Dark Mode State
   const [isDarkMode, setIsDarkMode] = useState(() => {
     if (typeof window !== "undefined") {
@@ -530,7 +532,11 @@ const DiagramEditor = ({
 
     // If no nodes, nothing to save
     if (nodes.length === 0) {
-      alert("No architecture to save. Please add components to the diagram.");
+      toast({
+        title: "No architecture to save",
+        description: "Please add components to the diagram.",
+        variant: "default",
+      });
       return;
     }
 
@@ -586,22 +592,25 @@ const DiagramEditor = ({
       setHistoryIndex(() => 0);
     } catch (error) {
       console.error("Error in handleSave:", error);
-      alert("Failed to save architecture. Please try again.");
+      toast({
+        title: "Failed to save",
+        description: "Failed to save architecture. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setIsSaving(false);
     }
   }, [architecture, nodes, edges, onSave]);
 
-  // Handle export - builds current architecture from nodes and edges
+  // Handle export - creates clean AI-ready product design metadata
   const handleExport = useCallback(async () => {
-    if (!onExport) {
-      console.error("Export handler not provided");
-      return;
-    }
-
     // If no nodes, nothing to export
     if (nodes.length === 0) {
-      alert("No architecture to export. Please add components to the diagram.");
+      toast({
+        title: "No architecture to export",
+        description: "Please add components to the diagram.",
+        variant: "default",
+      });
       return;
     }
 
@@ -610,8 +619,8 @@ const DiagramEditor = ({
         id: node.id,
         name: node.data.name,
         type: node.data.type as any,
-        technology: node.data.technology || "Pending...",
-        description: node.data.description || "",
+        technology: node.data.technology || undefined,
+        description: node.data.description || undefined,
       }));
 
       const connections = edges.map((edge) => ({
@@ -640,20 +649,123 @@ const DiagramEditor = ({
             updated_at: new Date().toISOString(),
           };
 
-      console.log("Exporting architecture:", currentArchitecture);
-      await onExport(currentArchitecture);
+      // Create clean product design metadata for AI agents
+      // Remove unnecessary fields like cost, timestamps, internal IDs
+      const productDesignMetadata = {
+        // Metadata
+        metadata: {
+          version: "1.0",
+          format: "product-design-metadata",
+          generated_at: new Date().toISOString(),
+          purpose:
+            "Complete product design specification for AI-assisted development",
+        },
+
+        // Product Information
+        product: {
+          name: currentArchitecture.prompt || "Product Architecture",
+          description:
+            currentArchitecture.product_description ||
+            currentArchitecture.summary ||
+            "A complete system architecture",
+          architecture_pattern:
+            currentArchitecture.patterns?.[0] || "microservices",
+          patterns: currentArchitecture.patterns || [],
+          scaling_model: currentArchitecture.scaling_model || "horizontal",
+          summary: currentArchitecture.summary,
+        },
+
+        // System Components
+        components: currentArchitecture.services.map((service) => ({
+          id: service.id,
+          name: service.name,
+          type: service.type,
+          technology: service.technology,
+          description: service.description,
+        })),
+
+        // Component Connections
+        connections: currentArchitecture.connections.map((conn) => ({
+          from: conn.source,
+          to: conn.target,
+          type: conn.type,
+          protocol: conn.protocol,
+        })),
+
+        // Workflow Documentation
+        workflows: currentArchitecture.workflow_documentation?.workflows || [],
+
+        // Component Endpoints (from workflow documentation)
+        endpoints:
+          currentArchitecture.workflow_documentation?.components?.flatMap(
+            (comp) =>
+              (comp.endpoints || []).map((endpoint) => ({
+                component: comp.id,
+                component_name: comp.name,
+                method: endpoint.method,
+                path: endpoint.path,
+                description: endpoint.description,
+                request: endpoint.request,
+                response: endpoint.response,
+              }))
+          ) || [],
+
+        // AI Agent Instructions
+        instructions: {
+          purpose:
+            "This document contains complete product design metadata for building the application end-to-end.",
+          usage: [
+            "Use the product description to understand the overall system purpose",
+            "Use components to identify all services, databases, frontends, and infrastructure needed",
+            "Use connections to understand data flow and communication patterns",
+            "Use workflows to understand user journeys and system interactions",
+            "Use endpoints to understand API contracts and implement backend services",
+            "Follow the architecture pattern and scaling model when implementing",
+          ],
+        },
+      };
+
+      // Remove undefined fields
+      const cleanMetadata = JSON.parse(
+        JSON.stringify(productDesignMetadata, (key, value) =>
+          value === undefined ? undefined : value
+        )
+      );
+
+      // Download as JSON file
+      const blob = new Blob([JSON.stringify(cleanMetadata, null, 2)], {
+        type: "application/json",
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const timestamp = new Date().toISOString().split("T")[0];
+      a.download = `Helix-designed-${timestamp}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      console.log("Exported product design metadata:", cleanMetadata);
     } catch (error) {
       console.error("Error in handleExport:", error);
-      alert(
-        "Failed to export architecture. Please check the console for details."
-      );
+      toast({
+        title: "Export failed",
+        description:
+          "Failed to export architecture. Please check the console for details.",
+        variant: "destructive",
+      });
     }
-  }, [architecture, nodes, edges, onExport]);
+  }, [architecture, nodes, edges, toast]);
 
   // Handle snapshot - capture diagram as image and download
   const takeSnapshot = useCallback(async () => {
     if (!reactFlowWrapperRef.current || !reactFlowInstance) {
-      alert("Unable to capture snapshot. Please try again.");
+      toast({
+        title: "Unable to capture snapshot",
+        description: "Please try again.",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -663,9 +775,12 @@ const DiagramEditor = ({
       try {
         html2canvas = (await import("html2canvas")).default;
       } catch (importError) {
-        alert(
-          "html2canvas library is required for snapshots. Please install it: npm install html2canvas"
-        );
+        toast({
+          title: "Library required",
+          description:
+            "html2canvas library is required for snapshots. Please install it: npm install html2canvas",
+          variant: "destructive",
+        });
         return;
       }
 
@@ -674,7 +789,11 @@ const DiagramEditor = ({
         ".react-flow__pane"
       ) as HTMLElement;
       if (!reactFlowPane) {
-        alert("Could not find diagram pane to capture.");
+        toast({
+          title: "Capture failed",
+          description: "Could not find diagram pane to capture.",
+          variant: "destructive",
+        });
         return;
       }
 
@@ -766,7 +885,11 @@ const DiagramEditor = ({
       // Convert canvas to blob and download
       canvas.toBlob((blob: Blob | null) => {
         if (!blob) {
-          alert("Failed to create image. Please try again.");
+          toast({
+            title: "Failed to create image",
+            description: "Please try again.",
+            variant: "destructive",
+          });
           return;
         }
 
@@ -781,9 +904,13 @@ const DiagramEditor = ({
       }, "image/png");
     } catch (error) {
       console.error("Error taking snapshot:", error);
-      alert("Failed to capture snapshot. Please try again.");
+      toast({
+        title: "Failed to capture snapshot",
+        description: "Please try again.",
+        variant: "destructive",
+      });
     }
-  }, [reactFlowInstance, isDarkMode]);
+  }, [reactFlowInstance, isDarkMode, toast]);
 
   return (
     <ComponentLibraryContext.Provider value={componentLibrary}>
@@ -863,8 +990,8 @@ const DiagramEditor = ({
             <button
               onClick={handleExport}
               className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md text-gray-600 dark:text-gray-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Export Architecture"
-              disabled={!onExport || nodes.length === 0}
+              title="Export Product Design Metadata (AI-Ready)"
+              disabled={nodes.length === 0}
             >
               <Download className="w-5 h-5" />
             </button>

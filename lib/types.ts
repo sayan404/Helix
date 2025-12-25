@@ -1,7 +1,17 @@
 export interface SystemNode {
   id: string;
   name: string;
-  type: 'service' | 'database' | 'cache' | 'queue' | 'gateway' | 'cdn' | 'load-balancer';
+  type:
+    | "service"
+    | "database"
+    | "cache"
+    | "queue"
+    | "gateway"
+    | "cdn"
+    | "load-balancer"
+    | "frontend"
+    | "mobile"
+    | "desktop";
   technology?: string;
   description?: string;
 }
@@ -9,7 +19,7 @@ export interface SystemNode {
 export interface SystemEdge {
   source: string;
   target: string;
-  type: 'sync' | 'async' | 'pub-sub';
+  type: "sync" | "async" | "pub-sub";
   protocol?: string;
 }
 
@@ -19,11 +29,35 @@ export interface ArchitectureBlueprint {
   services: SystemNode[];
   connections: SystemEdge[];
   patterns: string[];
-  scaling_model: 'horizontal' | 'vertical' | 'hybrid';
+  scaling_model: "horizontal" | "vertical" | "hybrid";
   summary: string;
   estimated_cost?: CostEstimation;
   created_at: string;
   updated_at: string;
+  product_description?: string;
+  workflow_documentation?: {
+    components: Array<{
+      id: string;
+      name: string;
+      description: string;
+      endpoints?: Array<{
+        method: string;
+        path: string;
+        description: string;
+        request?: any;
+        response?: any;
+      }>;
+    }>;
+    workflows: Array<{
+      name: string;
+      description: string;
+      steps: Array<{
+        component: string;
+        action: string;
+        description: string;
+      }>;
+    }>;
+  };
 }
 
 export interface CostEstimation {
@@ -62,4 +96,3 @@ export interface ExportPackage {
   docker_compose: string;
   dockerfile: string;
 }
-
