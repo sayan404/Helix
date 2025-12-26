@@ -50,6 +50,7 @@ import { FolderOpen, Clock } from "lucide-react";
 import { LoadSimulationChart } from "@/components/LoadSimulationChart";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ui/use-toast";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 type ChatMode = "generate" | "evaluate";
 
@@ -1423,16 +1424,22 @@ export default function Home() {
                     <CardContent className="h-[calc(100vh-8rem)] px-0 pb-0 pt-0">
                       <div className="flex h-full flex-col">
                         <div className="flex-1 overflow-hidden rounded-2xl border border-slate-800/60 bg-slate-950/60">
-                          <DiagramEditorWrapper
-                            architecture={architecture}
-                            componentLibrary={componentLibrary}
-                            onSave={handleWhiteboardSave}
-                            onSimulate={handleSimulate}
-                            onGenerateCode={handleGenerateCode}
-                            onExport={handleExport}
-                            isSimulating={isSimulating}
-                            isGeneratingCode={isGeneratingCode}
-                          />
+                          <ErrorBoundary
+                            resetKeys={
+                              architecture?.id ? [architecture.id] : []
+                            }
+                          >
+                            <DiagramEditorWrapper
+                              architecture={architecture}
+                              componentLibrary={componentLibrary}
+                              onSave={handleWhiteboardSave}
+                              onSimulate={handleSimulate}
+                              onGenerateCode={handleGenerateCode}
+                              onExport={handleExport}
+                              isSimulating={isSimulating}
+                              isGeneratingCode={isGeneratingCode}
+                            />
+                          </ErrorBoundary>
                         </div>
                       </div>
                     </CardContent>
@@ -1805,7 +1812,25 @@ export default function Home() {
                         </CardHeader>
                         <CardContent>
                           <div className="h-[300px] w-full bg-white rounded-lg p-2 overflow-hidden">
-                            <LoadSimulationChart metrics={scalabilityMetrics} />
+                            <ErrorBoundary
+                              fallback={
+                                <div className="h-full flex items-center justify-center text-slate-500">
+                                  <p>
+                                    Failed to load chart. Please try running
+                                    simulation again.
+                                  </p>
+                                </div>
+                              }
+                              resetKeys={
+                                scalabilityMetrics?.max_rps
+                                  ? [scalabilityMetrics.max_rps]
+                                  : []
+                              }
+                            >
+                              <LoadSimulationChart
+                                metrics={scalabilityMetrics}
+                              />
+                            </ErrorBoundary>
                           </div>
                         </CardContent>
                       </Card>

@@ -50,6 +50,7 @@ import { Sidebar } from "./Sidebar";
 import { PropertiesPanel } from "./PropertiesPanel";
 import { getLayoutedElements } from "./utils/layout";
 import { ArchitectureBlueprint } from "@/lib/types";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 const nodeTypes = {
   custom: CustomNode,
@@ -1254,8 +1255,25 @@ const DiagramEditor = ({
 
 export default function DiagramEditorWrapper(props: DiagramEditorProps) {
   return (
-    <ReactFlowProvider>
-      <DiagramEditor {...props} />
-    </ReactFlowProvider>
+    <ErrorBoundary
+      fallback={
+        <div className="h-full flex items-center justify-center bg-slate-950/50 border border-slate-800 rounded-lg">
+          <div className="text-center p-8">
+            <p className="text-red-400 mb-4">Failed to load diagram editor</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-500"
+            >
+              Reload Page
+            </button>
+          </div>
+        </div>
+      }
+      resetKeys={[props.architecture?.id]}
+    >
+      <ReactFlowProvider>
+        <DiagramEditor {...props} />
+      </ReactFlowProvider>
+    </ErrorBoundary>
   );
 }
