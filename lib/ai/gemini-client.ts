@@ -230,15 +230,28 @@ Follow these rules strictly:
      enhancedDescription.architecture_pattern || "microservices"
    }
 
-3. Choose technologies in a developer-friendly way:
+3. Choose technologies following BEST PRACTICES and INDUSTRY STANDARDS:
+   - ALWAYS use industry-standard, well-documented, and widely-adopted technologies
+   - Follow best practices for each technology stack (e.g., RESTful API design, REST conventions, proper HTTP methods, status codes)
    - If the user DOES NOT explicitly require a specific tech stack, you MUST minimize tech variety and standardize the stack across the architecture.
    - Prefer one primary application stack across most services (same language + framework) rather than mixing stacks.
    - Prefer one primary database (unless a second DB is clearly justified), one cache, and one queue/stream.
    - Only introduce a new technology when there is a clear reason (compliance, special workload, strong functional requirement).
    - If the user DOES specify technologies, follow them and keep the rest consistent with that choice.
    - AVOID vendor lock-in: Prefer open-source, portable technologies (PostgreSQL over proprietary DBs, Redis over vendor-specific caches, etc.)
+   - Use semantic versioning, follow security best practices, implement proper error handling, logging, and monitoring patterns
+   - Apply SOLID principles, clean architecture patterns, and design patterns where appropriate
 
-4. Docker and Containerization:
+4. Platform & project scaffolding assumptions:
+   - Assume the user will pass this architecture JSON to an AI coding agent or platform (e.g., Cursor) that will generate the actual codebase.
+   - The architecture MUST be compatible with generating, at minimum, the following project-level files for any non-trivial app:
+     * A ".env.example" file listing ALL required environment variables (for frontend and backend), with sensible placeholder values.
+     * A "SETUP.md" file that explains how to install dependencies, configure environment variables, and run the app (dev and production).
+   - If a web SPA frontend is appropriate, prefer **React + Vite** (latest stable versions) over Create React App. NEVER suggest Create React App.
+   - When suggesting libraries/frameworks (React, Vite, Node.js, FastAPI, etc.), assume **latest stable major versions** that are widely adopted in 2025+ (do NOT pick obviously outdated stacks).
+   - Keep tooling choices modern and lightweight so that an AI agent can scaffold the project quickly (e.g., Vite over CRA, modern bundlers, etc.).
+
+5. Docker and Containerization:
    - DO NOT assume Docker/containerization is required unless:
      * The user explicitly mentions Docker, containers, or containerization in their prompt
      * The architecture absolutely requires containerization (e.g., complex microservices with multiple databases, or specific deployment requirements)
@@ -246,7 +259,7 @@ Follow these rules strictly:
    - Only include Docker-related components or services if they are explicitly requested or absolutely necessary for the architecture to function
    - Focus on the application architecture itself, not deployment infrastructure unless specifically requested
 
-5. Assign realistic and commonly used technologies for each service based on industry standards. Prefer:
+6. Assign realistic and commonly used technologies for each service based on industry standards. Prefer:
    - Frontend: React, Vue, Angular, Next.js, Svelte, Flutter, React Native, etc.
    - Backend: Node.js, Python (FastAPI/Flask/Django), Java (Spring Boot), Go, C# (.NET), etc.
    - Databases: PostgreSQL, MongoDB, MySQL, Cassandra, DynamoDB etc.
@@ -256,9 +269,19 @@ Follow these rules strictly:
    - Object Storage: S3-compatible storage
    - CDN: Cloudflare, AWS CloudFront, etc.
 
-6. For each service/component, write a short but meaningful description of its responsibility.
+7. For each service/component, write a COMPREHENSIVE and DETAILED description that includes:
+   - Primary responsibility and purpose
+   - Key functionalities and features it handles
+   - Data it processes or manages
+   - Dependencies and integrations
+   - Business logic or rules it enforces
+   - Performance considerations if relevant
+   - Security requirements if applicable
+   - Use industry-standard terminology and best practices
+   - Be as detailed as possible to enable smooth code generation later
+   - Example: Instead of "Authentication service", write "Handles user authentication using JWT tokens, password hashing with bcrypt, session management, OAuth2 integration for social logins, rate limiting to prevent brute force attacks, and multi-factor authentication support"
 
-7. Clearly define connections:
+8. Clearly define connections:
    ${
      componentType === "both"
        ? `- Use 'sync' for API calls (HTTP/gRPC/REST/GraphQL)
@@ -274,10 +297,10 @@ Follow these rules strictly:
    - Specify protocols: HTTP, HTTPS, WebSocket, gRPC, GraphQL, AMQP, Kafka, etc.`
    }
 
-8. Determine patterns from the architecture such as:
+9. Determine patterns from the architecture such as:
    ["microservices", "event-driven", "layered", "cqrs", "pub-sub", "monolith", "serverless", "api-gateway", "bff", ... etc]
 
-9. Infer scaling model:
+10. Infer scaling model:
    - "horizontal" → if using microservices / stateless services / serverless
    - "vertical" → if a single core service grows vertically (monolith)
    - "hybrid" → if mixed`;
@@ -331,21 +354,25 @@ The JSON output MUST match this schema exactly:
       {
         "id": "component-id",
         "name": "Component Name",
-        "description": "What this component does",
+        "description": "DETAILED description of what this component does, its responsibilities, data handling, business logic, and integrations",
         "endpoints": [
           {
             "method": "GET|POST|PUT|DELETE|PATCH",
             "path": "/api/v1/resource",
-            "description": "What this endpoint does",
+            "description": "DETAILED description including: purpose, business logic, validation rules, error handling, authentication/authorization requirements, rate limiting, and expected behavior",
             "request": {
-              "body": "Request body structure (if applicable)",
-              "query": "Query parameters (if applicable)",
-              "headers": "Required headers (if applicable)"
+              "body": "DETAILED request body structure with field names, types, validation rules, required/optional fields, example values, and constraints",
+              "query": "DETAILED query parameters with names, types, validation, default values, and usage examples",
+              "headers": "DETAILED required headers including authentication tokens, content-type, custom headers with descriptions"
             },
             "response": {
-              "status": 200,
-              "body": "Response body structure"
-            }
+              "status": "HTTP status codes (200, 201, 400, 401, 403, 404, 500, etc.)",
+              "body": "DETAILED response body structure with field names, types, example values, and error response formats"
+            },
+            "authentication": "Authentication method required (JWT, API Key, OAuth2, etc.)",
+            "authorization": "Authorization rules (roles, permissions, resource ownership)",
+            "validation": "Input validation rules and constraints",
+            "error_handling": "Error scenarios and corresponding status codes with error message formats"
           }
         ]
       }
@@ -358,7 +385,7 @@ The JSON output MUST match this schema exactly:
           {
             "component": "component-id",
             "action": "Action performed (e.g., POST /api/auth/register)",
-            "description": "What happens in this step"
+            "description": "DETAILED description of what happens in this step including: data flow, transformations, validations, side effects, error scenarios, and next steps"
           }
         ]
       }
@@ -386,12 +413,19 @@ ${
 }
 ${
   needsBackend
-    ? `- Generate endpoints for backend services that expose APIs`
+    ? `- Generate DETAILED endpoints for backend services that expose APIs
+   - For each endpoint, provide comprehensive details: purpose, request/response schemas with field types and validation rules, authentication/authorization requirements, error handling, rate limiting, and business logic
+   - Follow RESTful API best practices: proper HTTP methods, status codes, resource naming conventions, versioning strategy
+   - Include detailed request/response examples with realistic data structures
+   - Specify validation rules, constraints, and error scenarios for each endpoint`
     : `- Do NOT generate endpoints for frontend-only architecture`
 }
-- Generate workflows that show how different components interact to complete user journeys
-- The product_description should be comprehensive and explain what the system does
-- The workflow_documentation should include all major user flows and system interactions
+- Generate DETAILED workflows that show how different components interact to complete user journeys
+   - Each workflow step should include: component involved, action performed, data transformations, validation checks, error handling, and next steps
+   - Describe the complete flow with all edge cases and error scenarios
+- The product_description should be comprehensive and explain what the system does, its value proposition, and key features
+- The workflow_documentation should include all major user flows and system interactions with DETAILED step-by-step descriptions
+- CRITICAL: All descriptions must be DETAILED and COMPREHENSIVE to enable smooth code generation. Include enough context, business logic, validation rules, error handling, and technical specifications for an AI agent to generate production-ready code.
 ${
   componentType === "frontend-only"
     ? `- CRITICAL: Do NOT include any backend services, databases, APIs, or infrastructure components. Only frontend components.`
@@ -404,7 +438,7 @@ Return ONLY the JSON.`;
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash-lite",
+      model: "gemini-2.5-flash",
       contents: systemPrompt,
     });
 
@@ -756,7 +790,7 @@ Avoid restating the entire JSON.`;
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash-lite",
+      model: "gemini-2.5-flash",
       contents: prompt,
     });
 

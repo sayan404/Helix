@@ -42,6 +42,7 @@ import {
   ArrowRight,
   Star,
   Coins,
+  MessageSquarePlus,
 } from "lucide-react";
 import DiagramEditorWrapper from "@/components/diagram/DiagramEditor";
 import componentLibrary from "@/components/diagram/componentLibrary.json";
@@ -919,64 +920,87 @@ export default function Home() {
 
       {/* Header */}
       <header className="border-b border-slate-800/50 bg-slate-900/50 backdrop-blur-xl sticky top-0 z-50">
-        <div className="container mx-auto px-6 py-5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="relative">
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-purple-500 rounded-xl blur-lg opacity-50"></div>
-              </div>
+        <div className="container mx-auto px-3 sm:px-4 md:px-6 py-3 sm:py-4 md:py-5">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
+            {/* Logo Section */}
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-shrink-0">
               <div>
-                <h1 className="text-3xl font-black bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+                <h1 className="text-xl sm:text-2xl md:text-3xl font-black bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
                   Helix
                 </h1>
-                <p className="text-xs text-slate-400 -mt-0.5">
+                <p className="text-[10px] sm:text-xs text-slate-400 -mt-0.5">
                   System Design Autopilot
                 </p>
               </div>
             </div>
 
-            <div className="flex items-center gap-4">
-              <div className="hidden md:flex items-center gap-6 text-sm text-slate-400">
-                <div className="flex items-center gap-2">
-                  <Zap className="w-4 h-4 text-blue-400" />
-                  <span>AI-Powered</span>
-                </div>
+            {/* Right Section - Actions */}
+            <div className="flex items-center gap-2 sm:gap-3 md:gap-4 w-full sm:w-auto justify-end flex-wrap">
+              {/* AI-Powered Badge - Hidden on mobile */}
+              <div className="hidden lg:flex items-center gap-2 text-sm text-slate-400">
+                <Zap className="w-4 h-4 text-blue-400" />
+                <span>AI-Powered</span>
               </div>
+
+              {/* Tokens Button */}
               {currentUser && tokenQuota && (
-                <div className="flex items-center">
-                  <Button
-                    title={"You can buy more tokens by supporting the project."}
-                    variant="outline"
-                    size="sm"
-                    className={`border-slate-700 ${
-                      tokenQuota?.tokensLeft <= 0
-                        ? "text-red-600 hover:text-red-300 hover:border-red-500/50"
-                        : "text-slate-400"
-                    } px-3 py-1 text-xs font-bold`}
-                    onClick={() => router.push("/support-my-work")}
-                  >
-                    <Coins className="w-4 h-4 mr-2" />
-                    {tokenQuota.tokensLeft.toLocaleString()} Tokens left
-                  </Button>
-                </div>
+                <Button
+                  title={"You can buy more tokens by supporting the project."}
+                  variant="outline"
+                  size="sm"
+                  className={`border-slate-700 ${
+                    tokenQuota?.tokensLeft <= 0
+                      ? "text-red-600 hover:text-red-300 hover:border-red-500/50"
+                      : "text-slate-400"
+                  } px-2 sm:px-3 py-1 text-[10px] sm:text-xs font-bold`}
+                  onClick={() => router.push("/support-my-work")}
+                >
+                  <Coins className="w-3.5 h-3.5 sm:w-4 sm:h-4 sm:mr-2" />
+                  <span className="hidden sm:inline">
+                    {tokenQuota.tokensLeft.toLocaleString()} Tokens
+                  </span>
+                  <span className="sm:hidden">
+                    {tokenQuota.tokensLeft >= 1000
+                      ? `${(tokenQuota.tokensLeft / 1000).toFixed(1)}k`
+                      : tokenQuota.tokensLeft.toLocaleString()}
+                  </span>
+                </Button>
               )}
-              <div className="flex items-center">
+
+              {/* Feedback & Contribute Buttons */}
+              <div className="flex items-center gap-1.5 sm:gap-2">
                 <Button
                   variant="outline"
                   size="sm"
-                  className="border-slate-700 text-yellow-200 hover:text-yellow-300 hover:border-yellow-500/50"
+                  className="border-slate-700 text-slate-300 hover:text-blue-400 hover:border-blue-500/50 px-2 sm:px-3"
+                  onClick={() =>
+                    window.open(
+                      "https://docs.google.com/forms/d/e/1FAIpQLSf3HzUn5YWNGRw1BUFQj15x0VRmksqJN8uXhS1HIKpe1e-JQg/viewform?usp=sharing&ouid=100843366186820080583",
+                      "_blank"
+                    )
+                  }
+                  title="Share your feedback, suggestions, or reviews"
+                >
+                  <MessageSquare className="w-3.5 h-3.5 sm:w-4 sm:h-4 sm:mr-1.5" />
+                  <span className="hidden md:inline">Feedback</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-slate-700 text-yellow-200 hover:text-yellow-300 hover:border-yellow-500/50 px-2 sm:px-3"
                   onClick={() => router.push("/support-my-work")}
                 >
-                  <Star className="w-4 h-4 mr-2" />
-                  Contribute
+                  <Star className="w-3.5 h-3.5 sm:w-4 sm:h-4 sm:mr-1.5" />
+                  <span className="hidden md:inline">Contribute</span>
                 </Button>
               </div>
+
               {/* User Info & Logout */}
               {currentUser && (
-                <div className="flex items-center gap-3">
-                  <div className="hidden md:flex items-center gap-2 text-sm text-slate-400">
-                    <User className="w-4 h-4 text-slate-500" />
-                    <span className="text-slate-300">
+                <div className="flex items-center gap-2 sm:gap-3">
+                  <div className="hidden lg:flex items-center gap-2 text-sm text-slate-400 max-w-[150px]">
+                    <User className="w-4 h-4 text-slate-500 flex-shrink-0" />
+                    <span className="text-slate-300 truncate">
                       {currentUser.name || currentUser.email}
                     </span>
                   </div>
@@ -984,10 +1008,10 @@ export default function Home() {
                     onClick={handleLogout}
                     variant="outline"
                     size="sm"
-                    className="border-slate-700 hover:border-red-500/50 hover:bg-red-500/10 text-slate-300 hover:text-red-200"
+                    className="border-slate-700 hover:border-red-500/50 hover:bg-red-500/10 text-slate-300 hover:text-red-200 px-2 sm:px-3"
                   >
-                    <LogOut className="w-4 h-4 mr-2" />
-                    <span className="hidden sm:inline">Logout</span>
+                    <LogOut className="w-3.5 h-3.5 sm:w-4 sm:h-4 sm:mr-1.5" />
+                    <span className="hidden md:inline">Logout</span>
                   </Button>
                 </div>
               )}
@@ -1075,27 +1099,66 @@ export default function Home() {
               {(isLoadingPastProjects || pastProjects.length > 0) && (
                 <Card className="border-slate-800/50 bg-slate-900/50 backdrop-blur-xl shadow-2xl">
                   <CardHeader className="pb-3">
-                    <button
-                      onClick={() => setIsPastProjectsOpen(!isPastProjectsOpen)}
-                      className="w-full flex items-center justify-between gap-2 hover:opacity-80 transition-opacity"
-                    >
-                      <div className="flex items-center gap-2">
-                        <FolderOpen className="w-4 h-4 text-blue-400 transition-transform duration-300" />
-                        <CardTitle className="text-sm text-slate-100">
-                          Past Projects
-                        </CardTitle>
-                        <span className="text-xs text-slate-400">
-                          ({isLoadingPastProjects ? "…" : pastProjects.length})
-                        </span>
-                      </div>
-                      <div className="transition-transform duration-300 ease-in-out">
-                        {isPastProjectsOpen ? (
-                          <ChevronUp className="w-4 h-4 text-slate-400" />
-                        ) : (
-                          <ChevronDown className="w-4 h-4 text-slate-400" />
-                        )}
-                      </div>
-                    </button>
+                    <div className="flex items-center justify-between gap-3">
+                      <button
+                        onClick={() =>
+                          setIsPastProjectsOpen(!isPastProjectsOpen)
+                        }
+                        className="flex-1 flex items-center justify-between gap-2 group"
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <div className="p-1.5 rounded-lg bg-blue-500/10 group-hover:bg-blue-500/20 transition-colors">
+                            <FolderOpen className="w-4 h-4 text-blue-400 transition-transform duration-300 group-hover:scale-110" />
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <CardTitle className="text-sm font-semibold text-slate-100 group-hover:text-blue-300 transition-colors">
+                              Projects
+                            </CardTitle>
+                            <span className="text-xs font-medium px-1.5 py-0.5 rounded-md bg-slate-800/50 text-slate-400 group-hover:text-slate-300 transition-colors">
+                              {isLoadingPastProjects
+                                ? "…"
+                                : pastProjects.length}
+                            </span>
+                          </div>
+                        </div>
+                        <Button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setMessages([]);
+                            setChatInput("");
+                            setArchitecture(null);
+                            setArchitectureId(null);
+                            // Scroll to chat input
+                            setTimeout(() => {
+                              const chatInput = document.querySelector(
+                                'textarea[placeholder*="Describe"]'
+                              ) as HTMLTextAreaElement;
+                              if (chatInput) {
+                                chatInput.focus();
+                                chatInput.scrollIntoView({
+                                  behavior: "smooth",
+                                  block: "center",
+                                });
+                              }
+                            }, 100);
+                          }}
+                          variant="outline"
+                          size="sm"
+                          className="border-slate-700/50 hover:border-blue-500/50 hover:bg-blue-500/10 text-slate-300 hover:text-blue-400 transition-all duration-200 shadow-sm hover:shadow-md hover:scale-105"
+                          title="Start a new chat"
+                        >
+                          <MessageSquarePlus className="w-4 h-4 mr-1.5" />
+                          <span className="text-xs font-medium">New Chat</span>
+                        </Button>
+                        <div className="transition-transform duration-300 ease-in-out group-hover:scale-110">
+                          {isPastProjectsOpen ? (
+                            <ChevronUp className="w-4 h-4 text-slate-400 group-hover:text-blue-400 transition-colors" />
+                          ) : (
+                            <ChevronDown className="w-4 h-4 text-slate-400 group-hover:text-blue-400 transition-colors" />
+                          )}
+                        </div>
+                      </button>
+                    </div>
                   </CardHeader>
                   <div
                     className={`overflow-hidden transition-all duration-300 ease-in-out ${
@@ -1140,24 +1203,30 @@ export default function Home() {
                             <button
                               key={project.id}
                               onClick={() => handleLoadArchitecture(project)}
-                              className="w-full flex flex-col gap-1 p-3 rounded-lg border border-slate-800 bg-slate-950/50 hover:bg-blue-500/10 hover:border-blue-500/50 cursor-pointer transition-all group text-left"
+                              className="w-full flex flex-col gap-2 p-3 rounded-lg border border-slate-800/50 bg-slate-950/40 hover:bg-blue-500/10 hover:border-blue-500/50 cursor-pointer transition-all duration-200 group text-left shadow-sm hover:shadow-md"
                             >
                               <div className="flex items-start justify-between gap-2">
-                                <span className="text-xs font-medium text-slate-200 line-clamp-2 flex-1">
+                                <span className="text-xs font-medium text-slate-200 group-hover:text-blue-300 line-clamp-2 flex-1 transition-colors">
                                   {project.prompt ||
                                     project.summary ||
                                     "Untitled Project"}
                                 </span>
                               </div>
-                              <div className="flex items-center gap-2 text-[10px] text-slate-400">
-                                <Clock className="w-3 h-3" />
-                                <span>{formatDate(project.updated_at)}</span>
-                                <span className="ml-auto">
-                                  {project.services.length} services
-                                </span>{" "}
-                                <span className="ml-auto">
-                                  {project.connections.length} connections
-                                </span>
+                              <div className="flex items-center gap-3 text-[10px] text-slate-500 group-hover:text-slate-400 transition-colors">
+                                <div className="flex items-center gap-1">
+                                  <Clock className="w-3 h-3" />
+                                  <span>{formatDate(project.updated_at)}</span>
+                                </div>
+                                <div className="flex items-center gap-3 ml-auto">
+                                  <div className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-800/30 group-hover:bg-slate-800/50 transition-colors">
+                                    <Server className="w-3 h-3" />
+                                    <span>{project.services.length}</span>
+                                  </div>
+                                  <div className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-800/30 group-hover:bg-slate-800/50 transition-colors">
+                                    <Network className="w-3 h-3" />
+                                    <span>{project.connections.length}</span>
+                                  </div>
+                                </div>
                               </div>
                             </button>
                           );

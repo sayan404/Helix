@@ -1,6 +1,6 @@
 # Helix - AI-Powered System Design Autopilot
 
-Generate scalable system designs, cost estimations, and boilerplate code from natural language prompts.
+Generate end-to-end scalable system designs, cost estimations, and boilerplate code from natural language prompts.
 
 ## Features
 
