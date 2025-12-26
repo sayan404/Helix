@@ -1269,7 +1269,7 @@ export default function DiagramEditorWrapper(props: DiagramEditorProps) {
           </div>
         </div>
       }
-      resetKeys={[props.architecture?.id]}
+      resetKeys={[props.architecture?.id ?? ""]}
     >
       <ReactFlowProvider>
         <DiagramEditor {...props} />
