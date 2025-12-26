@@ -37,11 +37,11 @@ export default function NotFound() {
               </Link>
             </Button>
             <Button
-              onClick={() => window.history.back()}
+              asChild
               variant="outline"
               className="w-full border-slate-700 hover:bg-slate-800"
             >
-              Go Back
+              <Link href="/">Go Home</Link>
             </Button>
           </div>
         </CardContent>
