@@ -241,6 +241,16 @@ Follow these rules strictly:
    - AVOID vendor lock-in: Prefer open-source, portable technologies (PostgreSQL over proprietary DBs, Redis over vendor-specific caches, etc.)
    - Use semantic versioning, follow security best practices, implement proper error handling, logging, and monitoring patterns
    - Apply SOLID principles, clean architecture patterns, and design patterns where appropriate
+   - BACKEND LANGUAGE SELECTION (CRITICAL): 
+     * DEFAULT to Node.js (TypeScript/JavaScript) for backend services in common cases (REST APIs, microservices, web services, real-time applications, etc.)
+     * ONLY use Python or other scripting languages when they are EXPLICITLY the best choice, such as:
+       - Data science, machine learning, or AI/ML workloads
+       - Data processing pipelines or ETL jobs
+       - Scientific computing or numerical analysis
+       - When the user explicitly requests Python or a specific scripting language
+       - When there are strong domain-specific requirements (e.g., existing Python ML libraries needed)
+     * For general-purpose backend services (APIs, business logic, CRUD operations, authentication, etc.), ALWAYS prefer Node.js over Python
+     * This ensures consistency, better performance for I/O-bound operations, and easier maintenance with a unified JavaScript/TypeScript stack
 
 4. Platform & project scaffolding assumptions:
    - Assume the user will pass this architecture JSON to an AI coding agent or platform (e.g., Cursor) that will generate the actual codebase.
@@ -261,7 +271,12 @@ Follow these rules strictly:
 
 6. Assign realistic and commonly used technologies for each service based on industry standards. Prefer:
    - Frontend: React, Vue, Angular, Next.js, Svelte, Flutter, React Native, etc.
-   - Backend: Node.js, Python (FastAPI/Flask/Django), Java (Spring Boot), Go, C# (.NET), etc.
+   - Backend: 
+     * DEFAULT to Node.js (TypeScript/Express) for most backend services unless there's a compelling reason otherwise
+     * Use Python (FastAPI/Flask/Django) ONLY when explicitly required for ML/AI, data science, or when the user specifically requests it
+     * Use Java (Spring Boot) for enterprise applications requiring JVM ecosystem
+     * Use Go for high-performance, low-latency services or when explicitly requested
+     * Use C# (.NET) for Microsoft ecosystem integrations or when explicitly requested
    - Databases: PostgreSQL, MongoDB, MySQL, Cassandra, DynamoDB etc.
    - Cache: Redis, Memcached, Edge Cache etc.
    - Message Queue: Kafka, RabbitMQ, Redis Streams etc.
