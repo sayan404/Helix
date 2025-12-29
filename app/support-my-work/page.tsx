@@ -210,6 +210,47 @@ export default function SupportMyWork() {
                 </div>
               </div>
 
+              {/* Token Pricing Section */}
+              <div className="bg-gradient-to-br from-blue-500/10 via-purple-500/10 to-pink-500/10 rounded-xl p-6 border border-slate-700/50">
+                <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2 justify-center">
+                  <DollarSign className="w-5 h-5 text-green-400" />
+                  Token Pricing
+                </h3>
+                <p className="text-sm text-slate-400 text-center mb-4">
+                  Support the project and receive tokens based on your
+                  contribution:
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="bg-slate-950/50 rounded-lg p-4 border border-slate-700/50 hover:border-green-500/50 transition-all duration-300">
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-green-400 mb-1">
+                        ₹1
+                      </div>
+                      <div className="text-sm text-slate-400 mb-2">1 Rupee</div>
+                      <div className="text-lg font-semibold text-white">
+                        15 Tokens
+                      </div>
+                    </div>
+                  </div>
+                  <div className="bg-slate-950/50 rounded-lg p-4 border border-slate-700/50 hover:border-green-500/50 transition-all duration-300">
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-green-400 mb-1">
+                        $1
+                      </div>
+                      <div className="text-sm text-slate-400 mb-2">
+                        1 Dollar
+                      </div>
+                      <div className="text-lg font-semibold text-white">
+                        1,275 Tokens
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <p className="text-xs text-slate-500 text-center mt-4 italic">
+                  Example: A $10 contribution gives you 12,750 tokens!
+                </p>
+              </div>
+
               {/* Call to Action */}
               <div className="text-center space-y-6">
                 <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">

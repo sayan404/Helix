@@ -1,0 +1,1 @@
+ALTER TABLE "users" ALTER COLUMN "max_allowed_tokens" SET DEFAULT 10000;
