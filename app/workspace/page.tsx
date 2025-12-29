@@ -1401,14 +1401,14 @@ export default function Home() {
                   >
                     Design
                   </TabsTrigger>
-                  {!isFrontendOnly(architecture) && (
+                  {/* {!isFrontendOnly(architecture) && (
                     <TabsTrigger
                       value="code"
                       className="data-[state=active]:bg-blue-600 data-[state=active]:text-white"
                     >
                       Code
                     </TabsTrigger>
-                  )}
+                  )} */}
                   <TabsTrigger
                     value="simulation"
                     className="data-[state=active]:bg-blue-600 data-[state=active]:text-white"
@@ -1454,7 +1454,7 @@ export default function Home() {
                   </Card>
                 </TabsContent>
 
-                {!isFrontendOnly(architecture) && (
+                {/* {!isFrontendOnly(architecture) && (
                   <TabsContent
                     value="code"
                     className="h-full mt-0 overflow-hidden"
@@ -1668,7 +1668,7 @@ export default function Home() {
                       )}
                     </Card>
                   </TabsContent>
-                )}
+                )} */}
 
                 <TabsContent
                   value="simulation"
