@@ -774,7 +774,7 @@ MIT License - see LICENSE file for details
 
 ## 📞 Support & Contact
 
-- **Issues**: [GitHub Issues](https://github.com/your-repo/issues)
+- **Issues**: [GitHub Issues](https://github.com/sayan404/helix/issues)
 - **Email**: sayanmajumder2002@gmail.com
 - **Support Page**: `/support-my-work` (in-app)
 
@@ -792,3 +792,4 @@ MIT License - see LICENSE file for details
 ---
 
 _Built with ❤️ using Next.js, TypeScript, and Google Gemini AI_
+
